@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using szn;
 using UnityEngine;
@@ -44,15 +45,20 @@ public class Test : MonoBehaviour
     //}
 
     // Update is called once per frame
+
+    void Start()
+    {
+        Debug.LogError("-->Open DB");
+        SQLite3Handle.Instance.OpenDB(Application.dataPath + @"/Database/static.db",
+            SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create);
+    }
+
     void OnGUI()
     {
         GUI.skin.button.fontSize = 64;
         if (GUILayout.Button("Open"))
         {
-            SQLiteHandle.Instance.OpenDB(@"D:\Unity\Self\SqliteNew\Assets\Database\static.db",
-       SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create);
-
-            //List<Object[]> objs = SQLiteHandle.Instance.SelectMultiData("Item", "*", "ID = 20000007");
+            //List<Object[]> objs = SQLite3Handle.Instance.SelectMultiData("TestTable", "*", "ID = 0");
             //for (int i = 0; i < objs.Count; ++i)
             //{
             //    for (int j = 0; j < objs[i].Length; ++j)
@@ -61,10 +67,39 @@ public class Test : MonoBehaviour
             //    }
             //}
 
-            Item item = SQLiteHandle.Instance.SelectSingleT<Item>("Item", 20000007);
-            //            Debug.LogError(item);
+            Item item = SQLite3Handle.Instance.SelectSingleT<Item>(20000007);
+            Debug.LogError(item);
 
-            SQLiteHandle.Instance.CloseDB();
+            Person person = SQLite3Handle.Instance.SelectSingleT<Person>(5);
+            Debug.LogError(person);
+
+            //SQLite3Handle.Instance.CreateTable("TestTable", "ID INTEGER", "Name TEXT");
+            //SQLite3Handle.Instance.CreateTable(new Item());
+              
+            //SQLite3Handle.Instance.CreateTable(new Person());
+        }
+
+        if (GUILayout.Button("Close"))
+        {
+            //List<Object[]> objs = SQLite3Handle.Instance.SelectMultiData("TestTable", "*", "ID = 0");
+            //for (int i = 0; i < objs.Count; ++i)
+            //{
+            //    for (int j = 0; j < objs[i].Length; ++j)
+            //    {
+            //        Debug.LogError(objs[i][j]);
+            //    }
+            //}
+
+            Item item = SQLite3Handle.Instance.SelectSingleT<Item>(20000006);
+            Debug.LogError(item);
+
+            Person person = SQLite3Handle.Instance.SelectSingleT<Person>(0);
+            Debug.LogError(person);
+
+            //SQLite3Handle.Instance.CreateTable("TestTable", "ID INTEGER", "Name TEXT");
+            //SQLite3Handle.Instance.CreateTable(new Item());
+
+            //SQLite3Handle.Instance.CreateTable(new Person());
         }
 
         //if (GUILayout.Button("Read"))
@@ -73,8 +108,9 @@ public class Test : MonoBehaviour
         //}
     }
 
-    //    //void OnApplicationQuit()
-    //    //{
-    //    //    SQLiteHandle.Instance.CloseDB();
-    //    //}
+    void OnApplicationQuit()
+    {
+        Debug.LogError("-->Close DB");
+        SQLite3Handle.Instance.CloseDB();
+    }
 }

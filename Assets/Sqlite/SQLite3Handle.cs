@@ -10,17 +10,17 @@ using Object = System.Object;
 
 namespace szn
 {
-    public class SQLiteHandle
+    public class SQLite3Handle
     {
-        public static SQLiteHandle Instance
+        public static SQLite3Handle Instance
         {
             get
             {
-                if (null == instance) instance = new SQLiteHandle();
+                if (null == instance) instance = new SQLite3Handle();
                 return instance;
             }
         }
-        private static SQLiteHandle instance;
+        private static SQLite3Handle instance;
 
         private Sqlite3DatabaseHandle handle;
         private StringBuilder stringBuilder;
@@ -30,10 +30,10 @@ namespace szn
             Assert.raiseExceptions = true;
             Assert.IsFalse(string.IsNullOrEmpty(InDataBasePath), "数据库路径不能为空！");
 
-            SQLiteResult result = SQLite3.Open(ConvertStringToUTF8Bytes(InDataBasePath),
+            SQLite3Result result = SQLite3.Open(ConvertStringToUTF8Bytes(InDataBasePath),
                 out handle, InFlags.GetHashCode(), IntPtr.Zero);
 
-            if (result != SQLiteResult.OK)
+            if (result != SQLite3Result.OK)
             {
                 SQLite3.Close(handle);
                 handle = IntPtr.Zero;
@@ -58,11 +58,11 @@ namespace szn
                 .Append(InKey);
 
             Sqlite3Statement stmt;
-            SQLiteResult result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
+            SQLite3Result result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
 
-            if (SQLiteResult.OK == result)
+            if (SQLite3Result.OK == result)
             {
-                if (SQLiteResult.Row == SQLite3.Step(stmt))
+                if (SQLite3Result.Row == SQLite3.Step(stmt))
                 {
                     int count = SQLite3.ColumnCount(stmt);
 
@@ -108,7 +108,6 @@ namespace szn
 
         public List<Object[]> SelectMultiData(string InTableName, string InSelectColumnName, string InCommon)
         {
-
             Assert.IsFalse(handle == IntPtr.Zero);
 
             List<Object[]> obj = null;
@@ -120,18 +119,18 @@ namespace szn
                 .Append(InTableName)
                 .Append(" WHERE ")
                 .Append(InCommon);
-            
-            Sqlite3Statement stmt;
-            SQLiteResult result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
 
-            if (SQLiteResult.OK == result)
+            Sqlite3Statement stmt;
+            SQLite3Result result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
+
+            if (SQLite3Result.OK == result)
             {
                 obj = new List<object[]>();
                 int count = SQLite3.ColumnCount(stmt);
                 do
                 {
-                    SQLiteResult rowResult = SQLite3.Step(stmt);
-                    if (SQLiteResult.Row == rowResult)
+                    SQLite3Result rowResult = SQLite3.Step(stmt);
+                    if (SQLite3Result.Row == rowResult)
                     {
                         Object[] objs = new object[count];
 
@@ -161,7 +160,7 @@ namespace szn
                             obj.Add(objs);
                         }
                     }
-                    else if(SQLiteResult.Done == rowResult) break;
+                    else if (SQLite3Result.Done == rowResult) break;
 
                 } while (true);
             }
@@ -169,7 +168,7 @@ namespace szn
             {
                 stringBuilder.Append("\nError : ")
                     .Append(SQLite3.GetErrmsg(handle));
-                
+
                 Debug.LogError(stringBuilder.ToString());
             }
 
@@ -178,41 +177,110 @@ namespace szn
             return obj;
         }
 
-        public T SelectSingleT<T>(string InTableName, int InKey) where T : Base, new()
+        public T SelectSingleT<T>(int InKey) where T : Base, new()
         {
             Assert.IsFalse(handle == IntPtr.Zero);
 
-            T t = default(T);
+            T t = new T();
+
+            PropertyStruct property = t.PropertyInfos;
+
             stringBuilder.Remove(0, stringBuilder.Length);
             stringBuilder.Append("SELECT * FROM ")
-                .Append(InTableName)
+                .Append(property.ClassName)
                 .Append(" WHERE ID = ")
                 .Append(InKey);
 
             Sqlite3Statement stmt;
-            SQLiteResult result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
+            SQLite3Result result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
 
-            if (SQLiteResult.OK == result)
+            if (SQLite3Result.OK == result)
             {
-                if (SQLiteResult.Row == SQLite3.Step(stmt))
+                if (SQLite3Result.Row == SQLite3.Step(stmt))
                 {
-                    t = new T();
+                    int count = SQLite3.ColumnCount(stmt);
+                    int length = property.Infos.Length;
 
-                    PropertyInfo[] infos = t.PropertyInfos;
-                    
+                    Assert.IsTrue(count == length, property.ClassName + " : 数据库列与类属性个数不一致！");
+
+                    Type type;
+                    for (int i = 0; i < length; ++i)
+                    {
+                        type = property.Infos[i].PropertyType;
+
+                        if (typeof(int) == type)
+                            property.Infos[i].SetValue(t, SQLite3.ColumnInt(stmt, i), null);
+                        else if (typeof(long) == type)
+                            property.Infos[i].SetValue(t, SQLite3.ColumnInt64(stmt, i), null);
+                        else if (typeof(float) == type || typeof(double) == type)
+                            property.Infos[i].SetValue(t, SQLite3.ColumnDouble(stmt, i), null);
+                        else if (typeof(string) == type)
+                            property.Infos[i].SetValue(t, SQLite3.ColumnText(stmt, i), null);
+                    }
+                }
+            }
+            else
+            {
+                stringBuilder.Append("\nError : ")
+                    .Append(SQLite3.GetErrmsg(handle));
+
+                Debug.LogError(stringBuilder.ToString());
+
+                return null;
+            }
+
+            SQLite3.Finalize(stmt);
+
+            return t;
+
+            //return SelectSingleT<T>("ID = " + InKey);
+        }
+
+        public T SelectSingleT<T>(string InCommand, bool InIsNotFullCommand = true) where T : Base, new()
+        {
+            Assert.IsFalse(handle == IntPtr.Zero);
+
+            T t = new T();
+
+            PropertyStruct property = t.PropertyInfos;
+
+            Sqlite3Statement stmt;
+            SQLite3Result result;
+
+            if (InIsNotFullCommand)
+            {
+                stringBuilder.Remove(0, stringBuilder.Length);
+                stringBuilder.Append("SELECT * FROM ")
+                    .Append(property.ClassName)
+                    .Append(" WHERE ")
+                    .Append(InCommand);
+
+                result = SQLite3.Prepare2(handle, InCommand, InCommand.Length, out stmt, IntPtr.Zero);
+            }
+            else
+            {
+                result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
+            }
+            
+            if (SQLite3Result.OK == result)
+            {
+                if (SQLite3Result.Row == SQLite3.Step(stmt))
+                {
+                    PropertyInfo[] infos = t.PropertyInfos.Infos;
+
                     int count = SQLite3.ColumnCount(stmt);
                     int length = infos.Length;
 
-                    Assert.IsTrue(count == length, InTableName + " : 数据库列与类属性个数不一致！");
+                    Assert.IsTrue(count == length, property.ClassName + " : 数据库列与类属性个数不一致！");
 
                     Type type;
                     for (int i = 0; i < length; ++i)
                     {
                         type = infos[i].PropertyType;
 
-                        if (typeof (int) == type)
+                        if (typeof(int) == type)
                             infos[i].SetValue(t, SQLite3.ColumnInt(stmt, i), null);
-                        else if(typeof(long) == type)
+                        else if (typeof(long) == type)
                             infos[i].SetValue(t, SQLite3.ColumnInt64(stmt, i), null);
                         else if (typeof(float) == type || typeof(double) == type)
                             infos[i].SetValue(t, SQLite3.ColumnDouble(stmt, i), null);
@@ -227,6 +295,8 @@ namespace szn
                     .Append(SQLite3.GetErrmsg(handle));
 
                 Debug.LogError(stringBuilder.ToString());
+
+                return null;
             }
 
             SQLite3.Finalize(stmt);
@@ -234,7 +304,36 @@ namespace szn
             return t;
         }
 
+        public void CreateTable(string InTableName, params string[] InColumnNameAndType)
+        {
+            Assert.IsFalse(handle == IntPtr.Zero);
 
+            stringBuilder.Remove(0, stringBuilder.Length);
+            stringBuilder.Append("CREATE TABLE ")
+                .Append(InTableName)
+                .Append(" (");
+            int length = InColumnNameAndType.Length;
+            for (int i = 0; i < length; i++)
+            {
+                stringBuilder.Append(InColumnNameAndType[i]).Append(", ");
+            }
+            stringBuilder.Remove(stringBuilder.Length - 2, 2);
+            stringBuilder.Append(")");
+
+            Sqlite3Statement stmt;
+            SQLite3Result result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt,
+                IntPtr.Zero);
+
+            if (!(SQLite3Result.OK == result && SQLite3Result.Done == SQLite3.Step(stmt)))
+                Debug.LogError(stringBuilder + "/nError : " + SQLite3.GetErrmsg(stmt));
+
+            SQLite3.Finalize(stmt);
+        }
+
+        public void CreateTable<T>(T InT) where T : Base
+        {
+
+        }
 
 
         public void CloseDB()

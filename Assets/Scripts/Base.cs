@@ -1,7 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
-using UnityEngine;
+
+[AttributeUsage(AttributeTargets.Property)]
+public class SyncAttribute : Attribute
+{
+    public int SyncID { get; }
+
+    public SyncAttribute(int InSyncID)
+    {
+        SyncID = InSyncID;
+    }
+}
+
+public struct PropertyStruct
+{
+    public string ClassName;
+    public PropertyInfo[] Infos;
+
+    public PropertyStruct(string InClassName, PropertyInfo[] inInfos)
+    {
+        ClassName = InClassName;
+        Infos = inInfos;
+    }
+}
 
 public class Base
 {
@@ -16,48 +39,45 @@ public class Base
         }
     }
 
-    private static PropertyInfo[] propertyInfos;
+    private static Dictionary<Type, PropertyStruct> typeDict;
 
-    public PropertyInfo[] PropertyInfos
+    public PropertyStruct PropertyInfos
     {
-        get
+        get { return typeDict[GetType()]; }
+    }
+
+    public static PropertyStruct GetPropertyInfos(Type InKey)
+    {
+        return typeDict[InKey];
+    }
+
+    protected Base()
+    {
+        if (null == typeDict) typeDict = new Dictionary<Type, PropertyStruct>();
+        Type type = GetType();
+        if (!typeDict.ContainsKey(type))
         {
-            if (null == propertyInfos)
+            UnityEngine.Debug.LogError("----");
+            PropertyInfo[] properties = type.GetProperties(BindingFlags.Public
+                                                                | BindingFlags.NonPublic | BindingFlags.Instance);
+            int length = properties.Length;
+            Dictionary<int, PropertyInfo> propertyInfoDict = new Dictionary<int, PropertyInfo>(length);
+            Type attrType = typeof(SyncAttribute);
+            for (int i = 0; i < length; ++i)
             {
-
-                PropertyInfo[] properties = GetType().GetProperties(BindingFlags.Public
-                    | BindingFlags.NonPublic | BindingFlags.Instance);
-                int length = properties.Length;
-                //Debug.LogError("<>" + length);
-                Dictionary<int, PropertyInfo> propertyInfoDict = new Dictionary<int, PropertyInfo>(length);
-                Type type = typeof(SyncAttribute);
-                for (int i = 0; i < length; ++i)
-                {
-                    object[] objs = properties[i].GetCustomAttributes(type, false);
-                    if (objs.Length == 1 && objs[0] is SyncAttribute)
-                        propertyInfoDict.Add((objs[0] as SyncAttribute).SyncID, properties[i]);
-                }
-
-                length = propertyInfoDict.Count;
-                propertyInfos = new PropertyInfo[length];
-                for (int i = 0; i < length; ++i)
-                {
-                    propertyInfos[i] = propertyInfoDict[i];
-                }
+                object[] objs = properties[i].GetCustomAttributes(attrType, false);
+                if (objs.Length == 1 && objs[0] is SyncAttribute)
+                    propertyInfoDict.Add(((SyncAttribute)objs[0]).SyncID, properties[i]);
             }
 
-            return propertyInfos;
+            length = propertyInfoDict.Count;
+            PropertyInfo[] propertyInfos = new PropertyInfo[length];
+            for (int i = 0; i < length; ++i)
+            {
+                propertyInfos[i] = propertyInfoDict[i];
+            }
+
+            typeDict.Add(type, new PropertyStruct(type.Name, propertyInfos));
         }
-    }
-}
-
-[AttributeUsage(AttributeTargets.Property)]
-public class SyncAttribute : Attribute
-{
-    public int SyncID { get; }
-
-    public SyncAttribute(int InSyncID)
-    {
-        SyncID = InSyncID;
     }
 }

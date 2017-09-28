@@ -16,20 +16,20 @@ namespace szn
 
         #region Open
         [DllImport("sqlite3", EntryPoint = "sqlite3_open", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Open([MarshalAs(UnmanagedType.LPStr)] string filename, out Sqlite3DatabaseHandle db);
+        public static extern SQLite3Result Open([MarshalAs(UnmanagedType.LPStr)] string filename, out Sqlite3DatabaseHandle db);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_open_v2", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Open([MarshalAs(UnmanagedType.LPStr)] string filename, out Sqlite3DatabaseHandle db, int flags, Sqlite3DatabaseHandle zvfs);
+        public static extern SQLite3Result Open([MarshalAs(UnmanagedType.LPStr)] string filename, out Sqlite3DatabaseHandle db, int flags, Sqlite3DatabaseHandle zvfs);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_open_v2", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Open(byte[] filename, out Sqlite3DatabaseHandle db, int flags, Sqlite3DatabaseHandle zvfs);
+        public static extern SQLite3Result Open(byte[] filename, out Sqlite3DatabaseHandle db, int flags, Sqlite3DatabaseHandle zvfs);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_open16", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Open16([MarshalAs(UnmanagedType.LPWStr)] string filename, out Sqlite3DatabaseHandle db);
+        public static extern SQLite3Result Open16([MarshalAs(UnmanagedType.LPWStr)] string filename, out Sqlite3DatabaseHandle db);
         #endregion
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_prepare_v2", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Prepare2(Sqlite3DatabaseHandle db, [MarshalAs(UnmanagedType.LPStr)] string sql, int numBytes, out Sqlite3Statement stmt, Sqlite3DatabaseHandle pzTail);
+        public static extern SQLite3Result Prepare2(Sqlite3DatabaseHandle db, [MarshalAs(UnmanagedType.LPStr)] string sql, int numBytes, out Sqlite3Statement stmt, Sqlite3DatabaseHandle pzTail);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_count", CallingConvention = CallingConvention.Cdecl)]
         public static extern int ColumnCount(Sqlite3Statement stmt);
@@ -77,22 +77,22 @@ namespace szn
 
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_step", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Step(Sqlite3Statement stmt);
+        public static extern SQLite3Result Step(Sqlite3Statement stmt);
         [DllImport("sqlite3", EntryPoint = "sqlite3_initialize", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Initialize();
+        public static extern SQLite3Result Initialize();
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_close", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Close(Sqlite3DatabaseHandle db);
+        public static extern SQLite3Result Close(Sqlite3DatabaseHandle db);
 
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_enable_load_extension", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult EnableLoadExtension(Sqlite3DatabaseHandle db, int onoff);
+        public static extern SQLite3Result EnableLoadExtension(Sqlite3DatabaseHandle db, int onoff);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_shutdown", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Shutdown();
+        public static extern SQLite3Result Shutdown();
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_config", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Config(ConfigOption option);
+        public static extern SQLite3Result Config(ConfigOption option);
 
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_win32_set_directory", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
@@ -100,7 +100,7 @@ namespace szn
 
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_busy_timeout", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult BusyTimeout(Sqlite3DatabaseHandle db, int milliseconds);
+        public static extern SQLite3Result BusyTimeout(Sqlite3DatabaseHandle db, int milliseconds);
 
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_changes", CallingConvention = CallingConvention.Cdecl)]
@@ -109,10 +109,10 @@ namespace szn
 
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_reset", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Reset(Sqlite3Statement stmt);
+        public static extern SQLite3Result Reset(Sqlite3Statement stmt);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_finalize", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLiteResult Finalize(Sqlite3Statement stmt);
+        public static extern SQLite3Result Finalize(Sqlite3Statement stmt);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_last_insert_rowid", CallingConvention = CallingConvention.Cdecl)]
         public static extern long LastInsertRowid(Sqlite3DatabaseHandle db);
