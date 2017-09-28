@@ -12,46 +12,7 @@ namespace szn
         {
             return Marshal.PtrToStringUni(Errmsg(db));
         }
-
-        public static string ColumnName16(Sqlite3Statement stmt, int index)
-        {
-            return Marshal.PtrToStringUni(ColumnName16Internal(stmt, index));
-        }
-
-        public static Object GetData(Sqlite3Statement stmt, int index)
-        {
-
-            ColType type = ColumnType(stmt, index);
-
-            switch (type)
-            {
-                case ColType.Integer:
-                    return ColumnInt(stmt, index);
-                case ColType.Float:
-                    return ColumnDouble(stmt, index);
-                case ColType.Text:
-                    return ColumnString(stmt, index);
-                case ColType.Blob:
-                    return ColumnBlob(stmt, index);
-
-                default:
-                    return "null";
-            }
-        }
-
-        public static string ColumnString(Sqlite3Statement stmt, int index)
-        {
-            return Marshal.PtrToStringUni(ColumnText16(stmt, index));
-        }
-
-        public static byte[] ColumnByteArray(Sqlite3Statement stmt, int index)
-        {
-            int length = ColumnBytes(stmt, index);
-            var result = new byte[length];
-            if (length > 0)
-                Marshal.Copy(ColumnBlob(stmt, index), result, 0, length);
-            return result;
-        }
+        
 
         #region Open
         [DllImport("sqlite3", EntryPoint = "sqlite3_open", CallingConvention = CallingConvention.Cdecl)]
@@ -76,12 +37,15 @@ namespace szn
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_type", CallingConvention = CallingConvention.Cdecl)]
         public static extern ColType ColumnType(Sqlite3Statement stmt, int index);
 
-        [DllImport("sqlite3", EntryPoint = "sqlite3_column_name", CallingConvention = CallingConvention.Cdecl)]
-        public static extern Sqlite3DatabaseHandle ColumnName(Sqlite3Statement stmt, int index);
+        //[DllImport("sqlite3", EntryPoint = "sqlite3_column_name", CallingConvention = CallingConvention.Cdecl)]
+        //public static extern Sqlite3DatabaseHandle ColumnName(Sqlite3Statement stmt, int index);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_name16", CallingConvention = CallingConvention.Cdecl)]
-        static extern Sqlite3DatabaseHandle ColumnName16Internal(Sqlite3Statement stmt, int index);
-
+        private static extern Sqlite3DatabaseHandle ColumnName16Internal(Sqlite3Statement stmt, int index);
+        public static string ColumnName(Sqlite3Statement stmt, int index)
+        {
+            return Marshal.PtrToStringUni(ColumnName16Internal(stmt, index));
+        }
 
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_int", CallingConvention = CallingConvention.Cdecl)]
@@ -93,11 +57,17 @@ namespace szn
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_double", CallingConvention = CallingConvention.Cdecl)]
         public static extern double ColumnDouble(Sqlite3Statement stmt, int index);
 
-        [DllImport("sqlite3", EntryPoint = "sqlite3_column_text", CallingConvention = CallingConvention.Cdecl)]
-        public static extern Sqlite3DatabaseHandle ColumnText(Sqlite3Statement stmt, int index);
+        //[DllImport("sqlite3", EntryPoint = "sqlite3_column_text", CallingConvention = CallingConvention.Cdecl)]
+        //public static extern Sqlite3DatabaseHandle ColumnText(Sqlite3Statement stmt, int index);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_text16", CallingConvention = CallingConvention.Cdecl)]
-        public static extern Sqlite3DatabaseHandle ColumnText16(Sqlite3Statement stmt, int index);
+        private static extern Sqlite3DatabaseHandle ColumnText16(Sqlite3Statement stmt, int index);
+
+        public static string ColumnText(Sqlite3Statement InStmt, int InIndex)
+        {
+            return Marshal.PtrToStringUni(ColumnText16(InStmt, InIndex));
+        }
+
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_blob", CallingConvention = CallingConvention.Cdecl)]
         public static extern Sqlite3DatabaseHandle ColumnBlob(Sqlite3Statement stmt, int index);
