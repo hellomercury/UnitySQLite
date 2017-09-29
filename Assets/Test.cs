@@ -50,13 +50,13 @@ public class Test : MonoBehaviour
     {
         Debug.LogError("-->Open DB");
         SQLite3Handle.Instance.OpenDB(Application.dataPath + @"/Database/static.db",
-            SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create);
+            SQLite3OpenFlags.ReadWrite | SQLite3OpenFlags.Create);
     }
 
     void OnGUI()
     {
         GUI.skin.button.fontSize = 64;
-        if (GUILayout.Button("Open"))
+        if (GUILayout.Button("Select"))
         {
             //List<Object[]> objs = SQLite3Handle.Instance.SelectMultiData("TestTable", "*", "ID = 0");
             //for (int i = 0; i < objs.Count; ++i)
@@ -70,7 +70,7 @@ public class Test : MonoBehaviour
             Item item = SQLite3Handle.Instance.SelectSingleT<Item>(20000007);
             Debug.LogError(item);
 
-            Person person = SQLite3Handle.Instance.SelectSingleT<Person>(5);
+            Person person = SQLite3Handle.Instance.SelectSingleT<Person>(10);
             Debug.LogError(person);
 
             //SQLite3Handle.Instance.CreateTable("TestTable", "ID INTEGER", "Name TEXT");
@@ -79,7 +79,7 @@ public class Test : MonoBehaviour
             //SQLite3Handle.Instance.CreateTable(new Person());
         }
 
-        if (GUILayout.Button("Close"))
+        if (GUILayout.Button("Create"))
         {
             //List<Object[]> objs = SQLite3Handle.Instance.SelectMultiData("TestTable", "*", "ID = 0");
             //for (int i = 0; i < objs.Count; ++i)
@@ -90,11 +90,12 @@ public class Test : MonoBehaviour
             //    }
             //}
 
-            Item item = SQLite3Handle.Instance.SelectSingleT<Item>(20000006);
-            Debug.LogError(item);
+            //Item item = SQLite3Handle.Instance.SelectSingleT<Item>(20000006);
+            //Debug.LogError(item);
 
-            Person person = SQLite3Handle.Instance.SelectSingleT<Person>(0);
-            Debug.LogError(person);
+            //Person person = new Person(10, "szn");
+            SQLite3Handle.Instance.CreateTable<Person>();
+            //Debug.LogError(person);
 
             //SQLite3Handle.Instance.CreateTable("TestTable", "ID INTEGER", "Name TEXT");
             //SQLite3Handle.Instance.CreateTable(new Item());

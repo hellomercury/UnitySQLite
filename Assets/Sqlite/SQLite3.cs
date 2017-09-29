@@ -1,6 +1,4 @@
-﻿using UnityEngine;
-using Object = System.Object;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Sqlite3DatabaseHandle = System.IntPtr;
 using Sqlite3Statement = System.IntPtr;
 
@@ -35,7 +33,7 @@ namespace szn
         public static extern int ColumnCount(Sqlite3Statement stmt);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_type", CallingConvention = CallingConvention.Cdecl)]
-        public static extern ColType ColumnType(Sqlite3Statement stmt, int index);
+        public static extern SQLite3DataType ColumnType(Sqlite3Statement stmt, int index);
 
         //[DllImport("sqlite3", EntryPoint = "sqlite3_column_name", CallingConvention = CallingConvention.Cdecl)]
         //public static extern Sqlite3DatabaseHandle ColumnName(Sqlite3Statement stmt, int index);
@@ -92,7 +90,7 @@ namespace szn
         public static extern SQLite3Result Shutdown();
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_config", CallingConvention = CallingConvention.Cdecl)]
-        public static extern SQLite3Result Config(ConfigOption option);
+        public static extern SQLite3Result Config(SQLite3ConfigOption option);
 
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_win32_set_directory", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
@@ -142,7 +140,7 @@ namespace szn
         public static extern int BindBlob(Sqlite3Statement stmt, int index, byte[] val, int n, Sqlite3DatabaseHandle free);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_extended_errcode", CallingConvention = CallingConvention.Cdecl)]
-        public static extern ExtendedResult ExtendedErrCode(Sqlite3DatabaseHandle db);
+        public static extern SQLite3ExtendedResult ExtendedErrCode(Sqlite3DatabaseHandle db);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_libversion_number", CallingConvention = CallingConvention.Cdecl)]
         public static extern int LibVersionNumber();

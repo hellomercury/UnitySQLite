@@ -1,10 +1,9 @@
-﻿
-using System;
+﻿using System;
 
 namespace szn
 {
     [Flags]
-    public enum SQLiteOpenFlags
+    public enum SQLite3OpenFlags
     {
         ReadOnly = 1, ReadWrite = 2, Create = 4,
         NoMutex = 0x8000, FullMutex = 0x10000,
@@ -16,7 +15,7 @@ namespace szn
     }
 
     [Flags]
-    public enum CreateFlags
+    public enum SQLite3Constraint
     {
         None = 0,
         ImplicitPK = 1,    // create a primary key for field called 'Id' (Orm.ImplicitPkName)
@@ -60,7 +59,7 @@ namespace szn
         Done = 101
     }
 
-    public enum ExtendedResult
+    public enum SQLite3ExtendedResult
     {
         IOErrorRead = (SQLite3Result.IOError | (1 << 8)),
         IOErrorShortRead = (SQLite3Result.IOError | (2 << 8)),
@@ -109,17 +108,17 @@ namespace szn
         NoticeRecoverRollback = (SQLite3Result.Notice | (2 << 8))
     }
 
-    public enum ConfigOption
+    public enum SQLite3ConfigOption
     {
         SingleThread = 1,
         MultiThread = 2,
         Serialized = 3
     }
 
-    public enum ColType
+    public enum SQLite3DataType
     {
         Integer = 1,
-        Float = 2,
+        Real = 2,
         Text = 3,
         Blob = 4,
         Null = 5

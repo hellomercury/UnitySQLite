@@ -22,10 +22,12 @@ namespace szn
         }
         private static SQLite3Handle instance;
 
+        public Sqlite3DatabaseHandle DatabaseHandle { get { return handle; } }
         private Sqlite3DatabaseHandle handle;
+
         private StringBuilder stringBuilder;
 
-        public void OpenDB(string InDataBasePath, SQLiteOpenFlags InFlags)
+        public void OpenDB(string InDataBasePath, SQLite3OpenFlags InFlags)
         {
             Assert.raiseExceptions = true;
             Assert.IsFalse(string.IsNullOrEmpty(InDataBasePath), "数据库路径不能为空！");
@@ -70,23 +72,23 @@ namespace szn
 
                     for (int i = 0; i < count; ++i)
                     {
-                        ColType type = SQLite3.ColumnType(stmt, i);
+                        SQLite3DataType type = SQLite3.ColumnType(stmt, i);
 
                         switch (type)
                         {
-                            case ColType.Integer:
+                            case SQLite3DataType.Integer:
                                 obj[i] = SQLite3.ColumnInt(stmt, i);
                                 break;
-                            case ColType.Float:
+                            case SQLite3DataType.Real:
                                 obj[i] = SQLite3.ColumnDouble(stmt, i);
                                 break;
-                            case ColType.Text:
+                            case SQLite3DataType.Text:
                                 obj[i] = SQLite3.ColumnText(stmt, i);
                                 break;
-                            case ColType.Blob:
+                            case SQLite3DataType.Blob:
                                 obj[i] = SQLite3.ColumnBlob(stmt, i);
                                 break;
-                            case ColType.Null:
+                            case SQLite3DataType.Null:
                                 obj[i] = null;
                                 break;
                         }
@@ -136,23 +138,23 @@ namespace szn
 
                         for (int i = 0; i < count; ++i)
                         {
-                            ColType type = SQLite3.ColumnType(stmt, i);
+                            SQLite3DataType type = SQLite3.ColumnType(stmt, i);
 
                             switch (type)
                             {
-                                case ColType.Integer:
+                                case SQLite3DataType.Integer:
                                     objs[i] = SQLite3.ColumnInt(stmt, i);
                                     break;
-                                case ColType.Float:
+                                case SQLite3DataType.Real:
                                     objs[i] = SQLite3.ColumnDouble(stmt, i);
                                     break;
-                                case ColType.Text:
+                                case SQLite3DataType.Text:
                                     objs[i] = SQLite3.ColumnText(stmt, i);
                                     break;
-                                case ColType.Blob:
+                                case SQLite3DataType.Blob:
                                     objs[i] = SQLite3.ColumnBlob(stmt, i);
                                     break;
-                                case ColType.Null:
+                                case SQLite3DataType.Null:
                                     objs[i] = null;
                                     break;
                             }
@@ -183,11 +185,11 @@ namespace szn
 
             T t = new T();
 
-            PropertyStruct property = t.PropertyInfos;
+            ClassProperty classProperty = t.ClassPropertyInfos;
 
             stringBuilder.Remove(0, stringBuilder.Length);
             stringBuilder.Append("SELECT * FROM ")
-                .Append(property.ClassName)
+                .Append(classProperty.ClassName)
                 .Append(" WHERE ID = ")
                 .Append(InKey);
 
@@ -199,23 +201,23 @@ namespace szn
                 if (SQLite3Result.Row == SQLite3.Step(stmt))
                 {
                     int count = SQLite3.ColumnCount(stmt);
-                    int length = property.Infos.Length;
+                    int length = classProperty.Infos.Length;
 
-                    Assert.IsTrue(count == length, property.ClassName + " : 数据库列与类属性个数不一致！");
+                    Assert.IsTrue(count == length, classProperty.ClassName + " : 数据库列与类属性个数不一致！");
 
                     Type type;
                     for (int i = 0; i < length; ++i)
                     {
-                        type = property.Infos[i].PropertyType;
+                        type = classProperty.Infos[i].PropertyType;
 
                         if (typeof(int) == type)
-                            property.Infos[i].SetValue(t, SQLite3.ColumnInt(stmt, i), null);
+                            classProperty.Infos[i].SetValue(t, SQLite3.ColumnInt(stmt, i), null);
                         else if (typeof(long) == type)
-                            property.Infos[i].SetValue(t, SQLite3.ColumnInt64(stmt, i), null);
+                            classProperty.Infos[i].SetValue(t, SQLite3.ColumnInt64(stmt, i), null);
                         else if (typeof(float) == type || typeof(double) == type)
-                            property.Infos[i].SetValue(t, SQLite3.ColumnDouble(stmt, i), null);
+                            classProperty.Infos[i].SetValue(t, SQLite3.ColumnDouble(stmt, i), null);
                         else if (typeof(string) == type)
-                            property.Infos[i].SetValue(t, SQLite3.ColumnText(stmt, i), null);
+                            classProperty.Infos[i].SetValue(t, SQLite3.ColumnText(stmt, i), null);
                     }
                 }
             }
@@ -242,7 +244,7 @@ namespace szn
 
             T t = new T();
 
-            PropertyStruct property = t.PropertyInfos;
+            ClassProperty classProperty = t.ClassPropertyInfos;
 
             Sqlite3Statement stmt;
             SQLite3Result result;
@@ -251,7 +253,7 @@ namespace szn
             {
                 stringBuilder.Remove(0, stringBuilder.Length);
                 stringBuilder.Append("SELECT * FROM ")
-                    .Append(property.ClassName)
+                    .Append(classProperty.ClassName)
                     .Append(" WHERE ")
                     .Append(InCommand);
 
@@ -266,12 +268,12 @@ namespace szn
             {
                 if (SQLite3Result.Row == SQLite3.Step(stmt))
                 {
-                    PropertyInfo[] infos = t.PropertyInfos.Infos;
+                    PropertyInfo[] infos = t.ClassPropertyInfos.Infos;
 
                     int count = SQLite3.ColumnCount(stmt);
                     int length = infos.Length;
 
-                    Assert.IsTrue(count == length, property.ClassName + " : 数据库列与类属性个数不一致！");
+                    Assert.IsTrue(count == length, classProperty.ClassName + " : 数据库列与类属性个数不一致！");
 
                     Type type;
                     for (int i = 0; i < length; ++i)
@@ -330,10 +332,44 @@ namespace szn
             SQLite3.Finalize(stmt);
         }
 
-        public void CreateTable<T>(T InT) where T : Base
+        public void CreateTable<T>() where T : Base
         {
+            Assert.IsFalse(IntPtr.Zero == handle);
 
+            ClassProperty classProperty = Base.GetPropertyInfos(typeof (T));
+            stringBuilder.Remove(0, stringBuilder.Length);
+            stringBuilder.Append("CREATE TABLE ")
+                .Append(classProperty.ClassName)
+                .Append("(");
+            int length = classProperty.Infos.Length;
+            for (int i = 0; i < length; ++i)
+            {
+                stringBuilder.Append(classProperty.Infos[i].Name);
+
+                Type type = classProperty.Infos[i].PropertyType;
+
+                if (type == typeof (int) || type == typeof (long))
+                    stringBuilder.Append(" INTEGER, ");
+                else if (type == typeof (float) || type == typeof (double))
+                    stringBuilder.Append(" REAL, ");
+                else if (type == typeof (string))
+                    stringBuilder.Append(" TEXT, ");
+                else
+                    stringBuilder.Append(" BLOB, ");
+            }
+            stringBuilder.Remove(stringBuilder.Length - 2, 2);
+            stringBuilder.Append(")");
+
+            Sqlite3Statement stmt;
+            SQLite3Result result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt,
+                IntPtr.Zero);
+
+            if (!(SQLite3Result.OK == result && SQLite3Result.Done == SQLite3.Step(stmt)))
+                Debug.LogError(stringBuilder + "\nError : " + SQLite3.GetErrmsg(stmt));
+
+            SQLite3.Finalize(stmt);
         }
+
 
 
         public void CloseDB()

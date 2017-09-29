@@ -14,6 +14,17 @@ public class Person : Base
     [Sync((int)PersonEnum.Name)]
     public string Name { get; private set; }
 
+    public Person()
+    {
+        
+    }
+
+    public Person(int InID, string InName)
+    {
+        ID = InID;
+        this.Name = InName;
+    }
+
     public override string ToString()
     {
         return "Person : " + ID + ", " + Name;

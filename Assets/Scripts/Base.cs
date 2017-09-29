@@ -14,12 +14,12 @@ public class SyncAttribute : Attribute
     }
 }
 
-public struct PropertyStruct
+public struct ClassProperty
 {
     public string ClassName;
     public PropertyInfo[] Infos;
 
-    public PropertyStruct(string InClassName, PropertyInfo[] inInfos)
+    public ClassProperty(string InClassName, PropertyInfo[] inInfos)
     {
         ClassName = InClassName;
         Infos = inInfos;
@@ -39,26 +39,33 @@ public class Base
         }
     }
 
-    private static Dictionary<Type, PropertyStruct> typeDict;
+    private static Dictionary<Type, ClassProperty> typeDict;
 
-    public PropertyStruct PropertyInfos
+    public ClassProperty ClassPropertyInfos
     {
         get { return typeDict[GetType()]; }
     }
 
-    public static PropertyStruct GetPropertyInfos(Type InKey)
+    public static ClassProperty GetPropertyInfos(Type InKey)
     {
-        return typeDict[InKey];
+        ClassProperty property;
+        return null != typeDict && typeDict.TryGetValue(InKey, out property)
+            ? property : InitProperty(InKey);
     }
 
     protected Base()
     {
-        if (null == typeDict) typeDict = new Dictionary<Type, PropertyStruct>();
-        Type type = GetType();
-        if (!typeDict.ContainsKey(type))
+        InitProperty(GetType());
+    }
+
+    private static ClassProperty InitProperty(Type InType)
+    {
+        if (null == typeDict) typeDict = new Dictionary<Type, ClassProperty>();
+        ClassProperty property;
+        if (!typeDict.TryGetValue(InType, out property))
         {
             UnityEngine.Debug.LogError("----");
-            PropertyInfo[] properties = type.GetProperties(BindingFlags.Public
+            PropertyInfo[] properties = InType.GetProperties(BindingFlags.Public
                                                                 | BindingFlags.NonPublic | BindingFlags.Instance);
             int length = properties.Length;
             Dictionary<int, PropertyInfo> propertyInfoDict = new Dictionary<int, PropertyInfo>(length);
@@ -77,7 +84,10 @@ public class Base
                 propertyInfos[i] = propertyInfoDict[i];
             }
 
-            typeDict.Add(type, new PropertyStruct(type.Name, propertyInfos));
+            property = new ClassProperty(InType.Name, propertyInfos);
+            typeDict.Add(InType, property);
         }
+
+        return property;
     }
 }
