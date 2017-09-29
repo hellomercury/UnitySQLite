@@ -70,7 +70,7 @@ public class Test : MonoBehaviour
             Item item = SQLite3Handle.Instance.SelectSingleT<Item>(20000007);
             Debug.LogError(item);
 
-            Person person = SQLite3Handle.Instance.SelectSingleT<Person>(10);
+            Person person = SQLite3Handle.Instance.SelectSingleT<Person>(21);
             Debug.LogError(person);
 
             //SQLite3Handle.Instance.CreateTable("TestTable", "ID INTEGER", "Name TEXT");
@@ -103,6 +103,29 @@ public class Test : MonoBehaviour
             //SQLite3Handle.Instance.CreateTable(new Person());
         }
 
+        if (GUILayout.Button("Insert"))
+        {
+            //List<Object[]> objs = SQLite3Handle.Instance.SelectMultiData("TestTable", "*", "ID = 0");
+            //for (int i = 0; i < objs.Count; ++i)
+            //{
+            //    for (int j = 0; j < objs[i].Length; ++j)
+            //    {
+            //        Debug.LogError(objs[i][j]);
+            //    }
+            //}
+
+            //Item item = SQLite3Handle.Instance.SelectSingleT<Item>(20000006);
+            //Debug.LogError(item);
+
+            //Person person = new Person(10, "szn");
+            SQLite3Handle.Instance.Insert("Person", 2, "safwn");
+            //Debug.LogError(person);
+
+            //SQLite3Handle.Instance.CreateTable("TestTable", "ID INTEGER", "Name TEXT");
+            //SQLite3Handle.Instance.CreateTable(new Item());
+
+            //SQLite3Handle.Instance.CreateTable(new Person());
+        }
         //if (GUILayout.Button("Read"))
         //{
 

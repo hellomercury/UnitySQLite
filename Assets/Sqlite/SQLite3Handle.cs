@@ -4,8 +4,8 @@ using System.Reflection;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Assertions;
-using Sqlite3DatabaseHandle = System.IntPtr;
-using Sqlite3Statement = System.IntPtr;
+using SQLite3DbHandle = System.IntPtr;
+using SQLite3Statement = System.IntPtr;
 using Object = System.Object;
 
 namespace szn
@@ -22,8 +22,8 @@ namespace szn
         }
         private static SQLite3Handle instance;
 
-        public Sqlite3DatabaseHandle DatabaseHandle { get { return handle; } }
-        private Sqlite3DatabaseHandle handle;
+        public SQLite3DbHandle DatabaseHandle { get { return handle; } }
+        private SQLite3DbHandle handle;
 
         private StringBuilder stringBuilder;
 
@@ -32,10 +32,8 @@ namespace szn
             Assert.raiseExceptions = true;
             Assert.IsFalse(string.IsNullOrEmpty(InDataBasePath), "数据库路径不能为空！");
 
-            SQLite3Result result = SQLite3.Open(ConvertStringToUTF8Bytes(InDataBasePath),
-                out handle, InFlags.GetHashCode(), IntPtr.Zero);
-
-            if (result != SQLite3Result.OK)
+            if (SQLite3Result.OK != SQLite3.Open(ConvertStringToUTF8Bytes(InDataBasePath),
+                out handle, InFlags.GetHashCode(), IntPtr.Zero))
             {
                 SQLite3.Close(handle);
                 handle = IntPtr.Zero;
@@ -49,7 +47,7 @@ namespace szn
 
         public Object[] SelectSingleData(string InTableName, int InKey)
         {
-            Assert.IsFalse(handle == IntPtr.Zero);
+            Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
             Object[] obj = null;
 
@@ -59,10 +57,8 @@ namespace szn
                 .Append(" WHERE ID = ")
                 .Append(InKey);
 
-            Sqlite3Statement stmt;
-            SQLite3Result result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
-
-            if (SQLite3Result.OK == result)
+            SQLite3Statement stmt;
+            if (SQLite3Result.OK == SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero))
             {
                 if (SQLite3Result.Row == SQLite3.Step(stmt))
                 {
@@ -110,7 +106,7 @@ namespace szn
 
         public List<Object[]> SelectMultiData(string InTableName, string InSelectColumnName, string InCommon)
         {
-            Assert.IsFalse(handle == IntPtr.Zero);
+            Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
             List<Object[]> obj = null;
 
@@ -122,10 +118,8 @@ namespace szn
                 .Append(" WHERE ")
                 .Append(InCommon);
 
-            Sqlite3Statement stmt;
-            SQLite3Result result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
-
-            if (SQLite3Result.OK == result)
+            SQLite3Statement stmt;
+            if (SQLite3Result.OK == SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero))
             {
                 obj = new List<object[]>();
                 int count = SQLite3.ColumnCount(stmt);
@@ -181,7 +175,7 @@ namespace szn
 
         public T SelectSingleT<T>(int InKey) where T : Base, new()
         {
-            Assert.IsFalse(handle == IntPtr.Zero);
+            Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
             T t = new T();
 
@@ -193,10 +187,8 @@ namespace szn
                 .Append(" WHERE ID = ")
                 .Append(InKey);
 
-            Sqlite3Statement stmt;
-            SQLite3Result result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
-
-            if (SQLite3Result.OK == result)
+            SQLite3Statement stmt;
+            if (SQLite3Result.OK == SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero))
             {
                 if (SQLite3Result.Row == SQLite3.Step(stmt))
                 {
@@ -240,13 +232,13 @@ namespace szn
 
         public T SelectSingleT<T>(string InCommand, bool InIsNotFullCommand = true) where T : Base, new()
         {
-            Assert.IsFalse(handle == IntPtr.Zero);
+            Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
             T t = new T();
 
             ClassProperty classProperty = t.ClassPropertyInfos;
 
-            Sqlite3Statement stmt;
+            SQLite3Statement stmt;
             SQLite3Result result;
 
             if (InIsNotFullCommand)
@@ -308,7 +300,7 @@ namespace szn
 
         public void CreateTable(string InTableName, params string[] InColumnNameAndType)
         {
-            Assert.IsFalse(handle == IntPtr.Zero);
+            Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
             stringBuilder.Remove(0, stringBuilder.Length);
             stringBuilder.Append("CREATE TABLE ")
@@ -322,11 +314,9 @@ namespace szn
             stringBuilder.Remove(stringBuilder.Length - 2, 2);
             stringBuilder.Append(")");
 
-            Sqlite3Statement stmt;
-            SQLite3Result result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt,
-                IntPtr.Zero);
-
-            if (!(SQLite3Result.OK == result && SQLite3Result.Done == SQLite3.Step(stmt)))
+            SQLite3Statement stmt;
+            if (!(SQLite3Result.OK == SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero)
+                && SQLite3Result.Done == SQLite3.Step(stmt)))
                 Debug.LogError(stringBuilder + "/nError : " + SQLite3.GetErrmsg(stmt));
 
             SQLite3.Finalize(stmt);
@@ -334,7 +324,7 @@ namespace szn
 
         public void CreateTable<T>() where T : Base
         {
-            Assert.IsFalse(IntPtr.Zero == handle);
+            Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
             ClassProperty classProperty = Base.GetPropertyInfos(typeof (T));
             stringBuilder.Remove(0, stringBuilder.Length);
@@ -360,17 +350,38 @@ namespace szn
             stringBuilder.Remove(stringBuilder.Length - 2, 2);
             stringBuilder.Append(")");
 
-            Sqlite3Statement stmt;
-            SQLite3Result result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt,
-                IntPtr.Zero);
-
-            if (!(SQLite3Result.OK == result && SQLite3Result.Done == SQLite3.Step(stmt)))
+            SQLite3Statement stmt;
+            if (!(SQLite3Result.OK == SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero)
+                && SQLite3Result.Done == SQLite3.Step(stmt)))
                 Debug.LogError(stringBuilder + "\nError : " + SQLite3.GetErrmsg(stmt));
 
             SQLite3.Finalize(stmt);
         }
 
+        public void Insert(string InTableName, params object[] InValues)
+        {
+            Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
+            stringBuilder.Remove(0, stringBuilder.Length);
+            stringBuilder.Append("INSERT INTO ")
+                .Append(InTableName)
+                .Append(" VALUES(");
+
+            int length = InValues.Length;
+            for (int i = 0; i < length; ++i)
+            {
+                stringBuilder.Append("'").Append(InValues[i]).Append("', ");
+            }
+            stringBuilder.Remove(stringBuilder.Length - 2, 2);
+            stringBuilder.Append(")");
+
+            SQLite3Statement stmt;
+            if (!(SQLite3Result.OK == SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero)
+                && SQLite3Result.Done == SQLite3.Step(stmt)))
+                Debug.LogError(stringBuilder + "\nError : " + SQLite3.GetErrmsg(stmt));
+
+            SQLite3.Finalize(stmt);
+        }
 
         public void CloseDB()
         {
