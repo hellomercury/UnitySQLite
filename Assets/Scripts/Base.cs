@@ -64,7 +64,6 @@ public class Base
         ClassProperty property;
         if (!typeDict.TryGetValue(InType, out property))
         {
-            UnityEngine.Debug.LogError("----");
             PropertyInfo[] properties = InType.GetProperties(BindingFlags.Public
                                                                 | BindingFlags.NonPublic | BindingFlags.Instance);
             int length = properties.Length;
