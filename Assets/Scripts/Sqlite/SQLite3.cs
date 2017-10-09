@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-
-namespace szn
+namespace SQLite3
 {
     public static class SQLite3
     {
@@ -43,8 +42,7 @@ namespace szn
         {
             return Marshal.PtrToStringUni(ColumnName16Internal(stmt, index));
         }
-
-
+        
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_int", CallingConvention = CallingConvention.Cdecl)]
         public static extern int ColumnInt(IntPtr stmt, int index);
 
@@ -64,15 +62,13 @@ namespace szn
         {
             return Marshal.PtrToStringUni(ColumnText16(InStmt, InIndex));
         }
-
-
+        
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_blob", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr ColumnBlob(IntPtr stmt, int index);
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_column_bytes", CallingConvention = CallingConvention.Cdecl)]
         public static extern int ColumnBytes(IntPtr stmt, int index);
-
-
+        
         [DllImport("sqlite3", EntryPoint = "sqlite3_step", CallingConvention = CallingConvention.Cdecl)]
         public static extern SQLite3Result Step(IntPtr stmt);
         [DllImport("sqlite3", EntryPoint = "sqlite3_initialize", CallingConvention = CallingConvention.Cdecl)]
@@ -80,8 +76,7 @@ namespace szn
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_close", CallingConvention = CallingConvention.Cdecl)]
         public static extern SQLite3Result Close(IntPtr db);
-
-
+        
         [DllImport("sqlite3", EntryPoint = "sqlite3_enable_load_extension", CallingConvention = CallingConvention.Cdecl)]
         public static extern SQLite3Result EnableLoadExtension(IntPtr db, int onoff);
 
@@ -90,21 +85,16 @@ namespace szn
 
         [DllImport("sqlite3", EntryPoint = "sqlite3_config", CallingConvention = CallingConvention.Cdecl)]
         public static extern SQLite3Result Config(SQLite3ConfigOption option);
-
-
+        
         [DllImport("sqlite3", EntryPoint = "sqlite3_win32_set_directory", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
         public static extern int SetDirectory(uint directoryType, string directoryPath);
-
-
+        
         [DllImport("sqlite3", EntryPoint = "sqlite3_busy_timeout", CallingConvention = CallingConvention.Cdecl)]
         public static extern SQLite3Result BusyTimeout(IntPtr db, int milliseconds);
-
-
+        
         [DllImport("sqlite3", EntryPoint = "sqlite3_changes", CallingConvention = CallingConvention.Cdecl)]
         public static extern int Changes(IntPtr db);
-
-
-
+        
         [DllImport("sqlite3", EntryPoint = "sqlite3_reset", CallingConvention = CallingConvention.Cdecl)]
         public static extern SQLite3Result Reset(IntPtr stmt);
 

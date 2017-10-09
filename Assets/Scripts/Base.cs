@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using Debug = UnityEngine.Debug;
 
 [AttributeUsage(AttributeTargets.Property)]
 public class SyncAttribute : Attribute
@@ -28,22 +29,27 @@ public struct ClassProperty
 
 public class Base
 {
-    private static Base instance;
+    public delegate void DlgtPropertyChanged(Base InObj, string InPropertyName, object InCurrentValue, object InOldValue);
 
-    public static Base Instance
-    {
-        get
-        {
-            if (null == instance) instance = new Base();
-            return instance;
-        }
-    }
+    private Dictionary<string, DlgtPropertyChanged> propertyChangedDict;
+
+    //private static Base instance;
+
+    //public static Base Instance
+    //{
+    //    get
+    //    {
+    //        if (null == instance) instance = new Base();
+    //        return instance;
+    //    }
+    //}
 
     private static Dictionary<Type, ClassProperty> typeDict;
 
+    private Type type;
     public ClassProperty ClassPropertyInfos
     {
-        get { return typeDict[GetType()]; }
+        get { return typeDict[type]; }
     }
 
     public static ClassProperty GetPropertyInfos(Type InKey)
@@ -55,19 +61,24 @@ public class Base
 
     protected Base()
     {
-        InitProperty(GetType());
+        type = GetType();
+
+        InitProperty(type);
+
+        propertyChangedDict = new Dictionary<string, DlgtPropertyChanged>();
     }
 
     private static ClassProperty InitProperty(Type InType)
     {
         if (null == typeDict) typeDict = new Dictionary<Type, ClassProperty>();
+
         ClassProperty property;
         if (!typeDict.TryGetValue(InType, out property))
         {
-            UnityEngine.Debug.LogError("----");
             PropertyInfo[] properties = InType.GetProperties(BindingFlags.Public
                                                                 | BindingFlags.NonPublic | BindingFlags.Instance);
             int length = properties.Length;
+
             Dictionary<int, PropertyInfo> propertyInfoDict = new Dictionary<int, PropertyInfo>(length);
             Type attrType = typeof(SyncAttribute);
             for (int i = 0; i < length; ++i)
@@ -89,5 +100,50 @@ public class Base
         }
 
         return property;
+    }
+
+    public void OnSyncOne(int InIndex, object InObj)
+    {
+        if (null != InObj)
+        {
+            PropertyInfo info = ClassPropertyInfos.Infos[InIndex];
+            object oldObj = info.GetValue(this, null);
+
+            if (!InObj.Equals(oldObj))
+            {
+                info.SetValue(this, InObj, null);
+                OnPropertyChanged(info.Name, InObj, oldObj);
+            }
+        }
+    }
+
+    public void RegisterPropertyChanged(string InPropertyName, DlgtPropertyChanged InPropertyChangedFuc)
+    {
+        if (propertyChangedDict.ContainsKey(InPropertyName))
+        {
+            propertyChangedDict[InPropertyName] += InPropertyChangedFuc;
+        }
+        else
+        {
+            propertyChangedDict.Add(InPropertyName, InPropertyChangedFuc);
+        }
+    }
+
+    public void UnRegisterPropertyChanged(string InPropertyName, DlgtPropertyChanged InPropertyChangedFuc)
+    {
+        if (propertyChangedDict.ContainsKey(InPropertyName))
+        {
+            propertyChangedDict[InPropertyName] -= InPropertyChangedFuc;
+        }
+    }
+
+    public void OnPropertyChanged(string InPropertyName, object InPropertyValue, object InOldValue)
+    {
+        DlgtPropertyChanged del;
+        if (propertyChangedDict.TryGetValue(InPropertyName, out del)
+                && del != null)
+        {
+            del(this, InPropertyName, InPropertyValue, InOldValue);
+        }
     }
 }
