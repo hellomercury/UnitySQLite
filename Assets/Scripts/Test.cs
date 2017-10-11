@@ -6,7 +6,7 @@ using SQLite3;
 
 public class Test : MonoBehaviour
 {
-    public TextAsset text;
+    //public TextAsset text;
     //void Update()
     //{
     //    if (Input.GetMouseButtonUp(0))

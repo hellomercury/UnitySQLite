@@ -9,7 +9,6 @@ using NPOI.HSSF.UserModel;
 using NPOI.XSSF.UserModel;
 using SQLite3;
 using Object = UnityEngine.Object;
-using SQLite3 = SQLite3.SQLite3;
 
 public class ExcelImporter : EditorWindow
 {
@@ -37,13 +36,12 @@ public class ExcelImporter : EditorWindow
         public string Describe;
         public ValueType Type;
         public bool IsEnable;
-        public bool IsArray;
+//        public bool IsArray;
     }
 
     private SheetParameter[] sheetParameters;
     private static ExcelImporter window;
     private int sheetLength;
-    private string excelPath;
     private string databasePath;
     private string dataPath;
 
@@ -102,9 +100,10 @@ public class ExcelImporter : EditorWindow
                         {
                             sheetParameters[i].ColParameters[j].IsEnable
                                 = EditorGUILayout.BeginToggleGroup(
-                                    sheetParameters[i].ColParameters[j].IsArray
-                                        ? "Enable                                                                                        [Array]"
-                                        : "Enable",
+                                    ////sheetParameters[i].ColParameters[j].IsArray
+                                    //    ? "Enable                                                                                        [Array]"
+                                    //    : "Enable",
+                                    "Enable",
                                     sheetParameters[i].ColParameters[j].IsEnable);
 
                             GUILayout.BeginHorizontal();
@@ -126,7 +125,7 @@ public class ExcelImporter : EditorWindow
                     }
                     if (GUILayout.Button("Create"))
                     {
-                        CreateScript(sheetParameters[i].SheetName, sheetParameters[i].ColParameters, sheetParameters[i].SheetData);
+                        CreateDatabaseTable(sheetParameters[i].SheetName, sheetParameters[i].ColParameters, sheetParameters[i].SheetData);
 
                         sheetParameters[i].IsCreated = true;
 
@@ -158,8 +157,6 @@ public class ExcelImporter : EditorWindow
             window = CreateInstance<ExcelImporter>();
             window.minSize = new Vector2(500, 600);
             window.maxSize = new Vector2(500, 2000);
-
-            window.excelPath = info.FullName;
 
             using (FileStream stream = info.Open(FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
@@ -245,7 +242,12 @@ public class ExcelImporter : EditorWindow
         }
     }
 
-    void CreateScript(string InName, ColumnParameter[] InColParameters, ICell[,] InCellData)
+    //void CreateScript(string InName, ColumnParameter[] InColParameters)
+    //{
+        
+    //}
+
+    void CreateDatabaseTable(string InName, ColumnParameter[] InColParameters, ICell[,] InCellData)
     {
         SQLite3Handle handle = new SQLite3Handle("Assets/Database/Data.db", SQLite3OpenFlags.ReadWrite | SQLite3OpenFlags.Create);
         StringBuilder sb = new StringBuilder(512);
