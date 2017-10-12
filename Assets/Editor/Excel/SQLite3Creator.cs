@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using System.IO;
@@ -7,6 +8,7 @@ using NPOI.SS.UserModel;
 using NPOI.HSSF.UserModel;
 using NPOI.XSSF.UserModel;
 using SQLite3;
+using UnityEngine.Assertions;
 using Object = UnityEngine.Object;
 
 public class SQLite3Creator : EditorWindow
@@ -26,7 +28,7 @@ public class SQLite3Creator : EditorWindow
         public bool IsCreated;
 
         public ColumnParameter[] ColParameters;
-        public ICell[,] SheetData;
+        public List<ICell[]> SheetData;
     }
 
     private class ColumnParameter
@@ -39,32 +41,50 @@ public class SQLite3Creator : EditorWindow
         //        public bool IsArray;
     }
 
-    private SheetParameter[] sheetParameters;
     private static SQLite3Creator window;
+    private Vector2 scrollPos;
+
+    private List<SheetParameter> sheetParameters;
     private int sheetLength;
     private string databasePath;
     private string dataPath;
     private string scriptSavePath;
     private string excelPath;
     private bool isSingleExcel;
+    private bool isPreviewBtnEnabled;
+    private bool isLoadFinished;
+    private int createdSheetCount;
 
     void OnEnable()
     {
         dataPath = Application.dataPath;
         databasePath = EditorPrefs.GetString("DatabasePath", "Assets/StreamingAssets/Database/static.db");
         scriptSavePath = EditorPrefs.GetString("ScriptSavePath", "Assets/Scripts/Data/");
-        excelPath = EditorPrefs.GetString("ExcelPath", "Assets/ExcelData/");
+        excelPath = EditorPrefs.GetString("ExcelPath", dataPath + "/ExcelData/");
+        isPreviewBtnEnabled = true;
     }
 
     void OnGUI()
     {
         GUILayout.Label("Excel Importer", EditorStyles.boldLabel);
-        
+
         #region Single Excel
         if (isSingleExcel)
         {
             #region Path
             EditorGUILayout.BeginVertical("box");
+            GUILayout.BeginHorizontal();
+            scriptSavePath = EditorGUILayout.TextField("Script Save Path", scriptSavePath);
+            if (GUILayout.Button("Open", GUILayout.MaxWidth(45)))
+            {
+                string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + scriptSavePath, "");
+                if (!string.IsNullOrEmpty(path))
+                {
+                    scriptSavePath = "Assets" + path.Replace(dataPath, "") + "/";
+                    EditorPrefs.SetString("CreatorScriptPath", scriptSavePath);
+                }
+            }
+            GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
             databasePath = EditorGUILayout.TextField("Database Path", databasePath);
@@ -78,19 +98,6 @@ public class SQLite3Creator : EditorWindow
                 }
             }
             GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal();
-            scriptSavePath = EditorGUILayout.TextField("Script Save Path", scriptSavePath);
-            if (GUILayout.Button("Open", GUILayout.MaxWidth(45)))
-            {
-                string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + scriptSavePath, "");
-                if (!string.IsNullOrEmpty(path))
-                {
-                    scriptSavePath = "Assets" + path.Replace(dataPath, "") + "/";
-                    EditorPrefs.SetString("CreatorScriptPath", scriptSavePath);
-                }
-            }
-            GUILayout.EndHorizontal();
             EditorGUILayout.EndVertical();
             #endregion
 
@@ -98,7 +105,8 @@ public class SQLite3Creator : EditorWindow
 
             if (null != sheetParameters)
             {
-                sheetLength = sheetParameters.Length;
+                scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
+                sheetLength = sheetParameters.Count;
                 for (int i = 0; i < sheetLength; i++)
                 {
                     if (!sheetParameters[i].IsCreated)
@@ -148,10 +156,12 @@ public class SQLite3Creator : EditorWindow
                         {
                             try
                             {
-                                CreateDatabaseTable(sheetParameters[i].SheetName, sheetParameters[i].ColParameters,
-                                    sheetParameters[i].SheetData);
+                                CreateScript(sheetParameters[i].SheetName, sheetParameters[i].ColParameters,
+                                    scriptSavePath);
 
-                                CreateScript(sheetParameters[i].SheetName, sheetParameters[i].ColParameters);
+                                CreateDatabaseTable(sheetParameters[i].SheetName, sheetParameters[i].ColParameters,
+                                    sheetParameters[i].SheetData,
+                                    databasePath);
 
                                 sheetParameters[i].IsCreated = true;
 
@@ -166,6 +176,8 @@ public class SQLite3Creator : EditorWindow
                         EditorGUILayout.EndVertical();
                     }
                 }
+
+                EditorGUILayout.EndScrollView();
             }
 
             #endregion
@@ -175,38 +187,170 @@ public class SQLite3Creator : EditorWindow
         #region Multiple Excel
         else
         {
-            #region Path
+            #region Tittle
             EditorGUILayout.BeginVertical("box");
 
             GUILayout.BeginHorizontal();
-            databasePath = EditorGUILayout.TextField("Database Path", databasePath);
+            GUI.enabled = isPreviewBtnEnabled;
+            excelPath = EditorGUILayout.TextField("Excel Path", excelPath);
             if (GUILayout.Button("Open", GUILayout.MaxWidth(45)))
             {
-                string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + databasePath, "");
+                string path = EditorUtility.OpenFolderPanel("Excle Path", excelPath, "");
                 if (!string.IsNullOrEmpty(path))
                 {
-                    databasePath = "Assets" + path.Replace(dataPath, "") + "/";
-                    EditorPrefs.SetString("CreatorScriptPath", databasePath);
+                    EditorPrefs.SetString("ExcelPath", excelPath);
                 }
             }
             GUILayout.EndHorizontal();
 
-            GUILayout.BeginHorizontal();
-            scriptSavePath = EditorGUILayout.TextField("Script Save Path", scriptSavePath);
-            if (GUILayout.Button("Open", GUILayout.MaxWidth(45)))
+            GUI.enabled = true;
+            if (isPreviewBtnEnabled && GUILayout.Button("Preview"))
             {
-                string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + scriptSavePath, "");
-                if (!string.IsNullOrEmpty(path))
+                isPreviewBtnEnabled = false;
+                LoadAllExcel(excelPath);
+            }
+
+            if (!isPreviewBtnEnabled && GUILayout.Button("Reset"))
+            {
+                isPreviewBtnEnabled = true;
+                isLoadFinished = false;
+                sheetParameters = null;
+            }
+            #endregion
+            if (isLoadFinished)
+            {
+                if (null != sheetParameters)
                 {
-                    scriptSavePath = "Assets" + path.Replace(dataPath, "") + "/";
-                    EditorPrefs.SetString("CreatorScriptPath", scriptSavePath);
+                    #region Path
+                    EditorGUILayout.BeginVertical("box");
+                    GUILayout.BeginHorizontal();
+                    scriptSavePath = EditorGUILayout.TextField("Script Save Path", scriptSavePath);
+                    if (GUILayout.Button("Open", GUILayout.MaxWidth(45)))
+                    {
+                        string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + scriptSavePath, "");
+                        if (!string.IsNullOrEmpty(path))
+                        {
+                            scriptSavePath = "Assets" + path.Replace(dataPath, "") + "/";
+                            EditorPrefs.SetString("CreatorScriptPath", scriptSavePath);
+                        }
+                    }
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    databasePath = EditorGUILayout.TextField("Database Path", databasePath);
+                    if (GUILayout.Button("Open", GUILayout.MaxWidth(45)))
+                    {
+                        string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + databasePath, "");
+                        if (!string.IsNullOrEmpty(path))
+                        {
+                            databasePath = "Assets" + path.Replace(dataPath, "") + "/";
+                            EditorPrefs.SetString("CreatorScriptPath", databasePath);
+                        }
+                    }
+                    GUILayout.EndHorizontal();
+                    if (GUILayout.Button("Create All"))
+                    {
+                        for (int i = 0; i < sheetLength; ++i)
+                        {
+                            if (!sheetParameters[i].IsCreated)
+                            {
+                                CreateScript(sheetParameters[i].SheetName, sheetParameters[i].ColParameters,
+                                    scriptSavePath);
+
+                                CreateDatabaseTable(sheetParameters[i].SheetName, sheetParameters[i].ColParameters,
+                                    sheetParameters[i].SheetData,
+                                    databasePath);
+
+                                sheetParameters[i].IsCreated = true;
+                            }
+                        }
+
+                        CloseWindows();
+                    }
+                    EditorGUILayout.EndVertical();
+                    #endregion
+
+                    #region GUI
+                    scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
+                    sheetLength = sheetParameters.Count;
+                    for (int i = 0; i < sheetLength; i++)
+                    {
+                        if (!sheetParameters[i].IsCreated)
+                        {
+                            EditorGUILayout.BeginVertical("box");
+                            GUILayout.BeginHorizontal();
+                            sheetParameters[i].SheetName = EditorGUILayout.TextField("Class Name",
+                                sheetParameters[i].SheetName);
+
+                            sheetParameters[i].IsEnable = EditorGUILayout.BeginToggleGroup("Enable",
+                                sheetParameters[i].IsEnable);
+                            EditorGUILayout.EndToggleGroup();
+                            GUILayout.EndHorizontal();
+
+                            if (sheetParameters[i].IsEnable)
+                            {
+                                int length = sheetParameters[i].ColParameters.Length;
+                                for (int j = 0; j < length; j++)
+                                {
+                                    sheetParameters[i].ColParameters[j].IsEnable
+                                        = EditorGUILayout.BeginToggleGroup(
+                                            ////sheetParameters[i].ColParameters[j].IsArray
+                                            //    ? "Enable                                                                                        [Array]"
+                                            //    : "Enable",
+                                            "Enable",
+                                            sheetParameters[i].ColParameters[j].IsEnable);
+
+                                    GUILayout.BeginHorizontal();
+                                    sheetParameters[i].ColParameters[j].Name =
+                                        EditorGUILayout.TextField(sheetParameters[i].ColParameters[j].Name,
+                                            GUILayout.MaxWidth(160));
+                                    sheetParameters[i].ColParameters[j].Describe =
+                                        EditorGUILayout.TextField(sheetParameters[i].ColParameters[j].Describe,
+                                            GUILayout.MaxWidth(240));
+                                    sheetParameters[i].ColParameters[j].Type =
+                                        (ValueType)
+                                            EditorGUILayout.EnumPopup(sheetParameters[i].ColParameters[j].Type,
+                                                GUILayout.MaxWidth(100));
+                                    GUILayout.EndHorizontal();
+
+                                    EditorGUILayout.EndToggleGroup();
+                                }
+
+                            }
+
+                            if (GUILayout.Button("Create"))
+                            {
+                                try
+                                {
+                                    CreateScript(sheetParameters[i].SheetName, sheetParameters[i].ColParameters,
+                                        scriptSavePath);
+
+                                    CreateDatabaseTable(sheetParameters[i].SheetName, sheetParameters[i].ColParameters,
+                                        sheetParameters[i].SheetData,
+                                        databasePath);
+
+                                    sheetParameters[i].IsCreated = true;
+
+                                    if (++createdSheetCount == sheetLength) CloseWindows();
+                                }
+                                catch (Exception e)
+                                {
+                                    throw new Exception(e.Message);
+                                }
+
+                            }
+                            EditorGUILayout.EndVertical();
+                        }
+                    }
+                    EditorGUILayout.EndScrollView();
+                    #endregion
                 }
             }
-            GUILayout.EndHorizontal();
             EditorGUILayout.EndVertical();
+
             #endregion
         }
-        #endregion
+
     }
 
     static void CloseWindows()
@@ -217,98 +361,22 @@ public class SQLite3Creator : EditorWindow
 
         EditorUtility.DisplayDialog("Tips", "生成成功。", "确定");
 
-        window.Close();
+        if (null != window) window.Close();
     }
 
     [MenuItem("Assets/Create SQLite3 Table")]
     static void ExportExcelToSQLite3()
     {
         Object obj = Selection.activeObject;
-        string objPath = AssetDatabase.GetAssetPath(obj);
-        FileInfo info = new FileInfo(objPath);
-        if (info.Exists && (info.Extension.Equals(".xlsx") || info.Extension.Equals(".xls")))
+        List<SheetParameter> parameters = LoadOneExcel(AssetDatabase.GetAssetPath(obj));
+
+        if (null != parameters)
         {
             window = CreateInstance<SQLite3Creator>();
             window.minSize = new Vector2(500, 600);
             window.maxSize = new Vector2(500, 2000);
             window.isSingleExcel = true;
-
-            using (FileStream stream = info.Open(FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            {
-                IWorkbook book;
-                if (info.Extension.Equals(".xlsx")) book = new XSSFWorkbook(stream);
-                else book = new HSSFWorkbook(stream);
-
-                int sheetCount = book.NumberOfSheets;
-                window.sheetParameters = new SheetParameter[sheetCount];
-
-                for (int i = 0; i < sheetCount; i++)
-                {
-                    ISheet sheet = book.GetSheetAt(i);
-
-                    int rowCount = sheet.LastRowNum;
-                    if (rowCount > 3)
-                    {
-                        IRow row1 = sheet.GetRow(0);
-                        IRow row2 = sheet.GetRow(1);
-                        IRow row3 = sheet.GetRow(2);
-
-                        int colCount = row1.LastCellNum;
-                        window.sheetParameters[i] = new SheetParameter();
-                        window.sheetParameters[i].SheetName = sheet.SheetName;
-                        window.sheetParameters[i].IsEnable = true;
-                        window.sheetParameters[i].IsCreated = false;
-                        window.sheetParameters[i].ColParameters = new ColumnParameter[colCount];
-
-                        for (int j = 0; j < colCount; j++)
-                        {
-                            window.sheetParameters[i].ColParameters[j] = new ColumnParameter();
-                            ICell cell = row1.GetCell(j);
-                            window.sheetParameters[i].ColParameters[j].Name = null == cell
-                                ? string.Empty
-                                : cell.StringCellValue;
-
-                            cell = row2.GetCell(j);
-                            string type = cell == null ? "NULL" : cell.StringCellValue;
-                            window.sheetParameters[i].ColParameters[j].OriginalType = type;
-                            switch (type)
-                            {
-                                case "int":
-                                case "bool":
-                                    window.sheetParameters[i].ColParameters[j].Type = ValueType.INTEGER;
-                                    break;
-                                case "float":
-                                case "double":
-                                    window.sheetParameters[i].ColParameters[j].Type = ValueType.REAL;
-                                    break;
-                                case "string":
-                                    window.sheetParameters[i].ColParameters[j].Type = ValueType.TEXT;
-                                    break;
-                                default:
-                                    window.sheetParameters[i].ColParameters[j].Type = ValueType.BLOB;
-                                    break;
-                            }
-
-                            cell = row3.GetCell(j);
-                            window.sheetParameters[i].ColParameters[j].Describe = null == cell
-                                ? string.Empty
-                                : cell.StringCellValue;
-
-                            window.sheetParameters[i].ColParameters[j].IsEnable = true;
-                        }
-
-                        window.sheetParameters[i].SheetData = new ICell[rowCount - 3, colCount];
-                        for (int j = 3, m = 0; j < rowCount; j++, m++)
-                        {
-                            for (int k = 0; k < colCount; k++)
-                            {
-                                window.sheetParameters[i].SheetData[m, k] = sheet.GetRow(j).GetCell(k);
-                            }
-                        }
-                    }
-                }
-            }
-
+            window.sheetParameters = parameters;
             window.Show();
         }
         else
@@ -327,48 +395,246 @@ public class SQLite3Creator : EditorWindow
         window.Show();
     }
 
+    static void LoadAllExcel(string InExcelDirectory)
+    {
+        DirectoryInfo dirInfos = new DirectoryInfo(InExcelDirectory);
+        if (dirInfos.Exists)
+        {
+            FileInfo[] fileInfos = dirInfos.GetFiles();
+            int length = fileInfos.Length;
+            window.sheetParameters = new List<SheetParameter>(3 * length);
+            List<SheetParameter> parameters;
+            for (int i = 0; i < length; ++i)
+            {
+                try
+                {
+                    parameters = LoadOneExcel(fileInfos[i].FullName);
+                    if (null != parameters) window.sheetParameters.AddRange(parameters);
+                }
+                catch (Exception e)
+                {
+                    throw new Exception(fileInfos[i].Name + "\nError : " + e.Message);
+                }
+                window.isLoadFinished = true;
+            }
+        }
+    }
 
+    static List<SheetParameter> LoadOneExcel(string InExcelPath)
+    {
+        FileInfo info = new FileInfo(InExcelPath);
+        if (info.Exists && !info.Name.StartsWith("~")
+            && (info.Extension.Equals(".xlsx") || info.Extension.Equals(".xls")))
+        {
+            List<SheetParameter> sheetParameters;
+            using (FileStream stream = info.Open(FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                IWorkbook book;
+                if (info.Extension.Equals(".xlsx")) book = new XSSFWorkbook(stream);
+                else book = new HSSFWorkbook(stream);
 
-    void CreateScript(string InName, ColumnParameter[] InColParameters)
+                int sheetCount = book.NumberOfSheets;
+                sheetParameters = new List<SheetParameter>(sheetCount);
+                SheetParameter parameter = null;
+                for (int i = 0; i < sheetCount; i++)
+                {
+                    ISheet sheet = book.GetSheetAt(i);
+
+                    int rowCount = sheet.LastRowNum;
+                    if (rowCount > 3)
+                    {
+                        IRow row1 = sheet.GetRow(0);
+                        IRow row2 = sheet.GetRow(1);
+                        IRow row3 = sheet.GetRow(2);
+                        int row1Count = row1.LastCellNum,
+                            row2Count = row2.LastCellNum,
+                            row3Count = null == row3 ? row2Count : row3.LastCellNum;
+
+                        int colCount = row1Count == row2Count && row1Count == row3Count
+                            ? row1Count
+                            : GetMin(row1Count, row2Count, row3Count);
+                        parameter = new SheetParameter();
+                        parameter.SheetName = sheet.SheetName.Equals("Sheet1") ? info.Name.Replace(info.Extension, "") : sheet.SheetName;
+                        parameter.IsEnable = true;
+                        parameter.IsCreated = false;
+                        parameter.ColParameters = new ColumnParameter[colCount];
+
+                        for (int j = 0; j < colCount; j++)
+                        {
+                            parameter.ColParameters[j] = new ColumnParameter();
+                            ICell cell = row1.GetCell(j);
+                            parameter.ColParameters[j].Name = null == cell
+                                ? string.Empty
+                                : cell.StringCellValue;
+
+                            cell = row2.GetCell(j);
+                            string type = cell == null ? "NULL" : cell.StringCellValue;
+                            parameter.ColParameters[j].OriginalType = type;
+                            switch (type)
+                            {
+                                case "int":
+                                case "bool":
+                                    parameter.ColParameters[j].Type = ValueType.INTEGER;
+                                    break;
+                                case "float":
+                                case "double":
+                                    parameter.ColParameters[j].Type = ValueType.REAL;
+                                    break;
+                                case "string":
+                                    parameter.ColParameters[j].Type = ValueType.TEXT;
+                                    break;
+                                default:
+                                    parameter.ColParameters[j].Type = ValueType.BLOB;
+                                    break;
+                            }
+
+                            if (null != row3)
+                            {
+                                cell = row3.GetCell(j);
+
+                                parameter.ColParameters[j].Describe = null == cell
+                                    ? string.Empty
+                                    : cell.StringCellValue;
+                            }
+
+                            parameter.ColParameters[j].IsEnable = true;
+                        }
+
+                        parameter.SheetData = new List<ICell[]>(rowCount - 3);
+                        IRow row;
+                        ICell[] cells;
+                        for (int j = 3; j < rowCount; j++)
+                        {
+                            row = sheet.GetRow(j);
+                            if (null != row)
+                            {
+                                cells = new ICell[colCount];
+                                for (int k = 0; k < colCount; k++)
+                                {
+                                    cells[k] = row.GetCell(k);
+                                }
+
+                                if (null != cells[0] && cells[0].CellType == CellType.Numeric)
+                                    parameter.SheetData.Add(cells);
+                            }
+                        }
+                    }
+
+                    if (null != parameter) sheetParameters.Add(parameter);
+                    parameter = null;
+                }
+
+                stream.Close();
+            }
+
+            return sheetParameters;
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    static void CreateScript(string InName, ColumnParameter[] InColParameters,
+        string InScriptSavePath)
     {
         StringBuilder sb = new StringBuilder(1024);
         int length = InColParameters.Length;
-        sb.Append("public enum ").Append(InName).Append("Enum\n")
+        sb.Append("/*\n")
+            .Append(" * 数据库数据表结构类\n")
+            .Append(" * --->次类为代码自动生成，请勿手动更改<---\n")
+            .Append(" * 如需进行修改，请修改脚步 SQLiteCreator 中的 CreateScript 方法\n")
+            .Append(" *                                                                                                                 --szn\n")
+            .Append(" */\n\n")
+            .Append("namespace SQLite3.Data\n")
             .Append("{\n");
+
+        sb.Append("    public enum ").Append(InName).Append("Enum\n")
+            .Append("    {\n");
         for (int i = 0; i < length; i++)
         {
-            sb.Append("    ").Append(InColParameters[i].Name).Append(",\n");
+            sb.Append("        ").Append(InColParameters[i].Name).Append(",\n");
         }
-        sb.Append("    Max\n");
-        sb.Append("}\n\n");
+        sb.Append("        Max\n");
+        sb.Append("    }\n\n");
 
-        sb.Append("public class ").Append(InName).Append("\n")
-            .Append("{\n");
+        sb.Append("    public class ").Append(InName).Append(" : Base").Append("\n")
+            .Append("    {\n");
 
         for (int i = 0; i < length; i++)
         {
-            sb.Append("    [Sync((int)").Append(InName).Append("Enum.").Append(InColParameters[i].Name).Append(")]\n")
-                .Append("    public ")
+            sb.Append("        [Sync((int)").Append(InName).Append("Enum.").Append(InColParameters[i].Name).Append(")]\n")
+                .Append("        public ")
                 .Append(InColParameters[i].OriginalType)
                 .Append(" ")
                 .Append(InColParameters[i].Name)
-                .Append(" { get; private set; }  //")
-                .Append(InColParameters[i].Describe)
-                .Append("\n\n");
+                .Append(" { get; private set; }");
+
+            if (string.IsNullOrEmpty(InColParameters[i].Describe))
+                sb.Append("\n\n");
+            else
+                sb.Append("  //").Append(InColParameters[i].Describe).Append("\n\n");
         }
 
-        sb.Append("}\n\n");
+        sb.Append("        public ").Append(InName).Append("()\n")
+            .Append("        {\n")
+            .Append("        }\n\n");
 
-        if (!Directory.Exists(scriptSavePath)) Directory.CreateDirectory(scriptSavePath);
-        string filepath = scriptSavePath + InName + "Data.cs";
+        sb.Append("        public ").Append(InName).Append("(");
+        for (int i = 0; i < length; ++i)
+        {
+            sb.Append(InColParameters[i].OriginalType)
+                .Append(" In").Append(InColParameters[i].Name)
+                .Append(", ");
+        }
+        sb.Remove(sb.Length - 2, 2);
+        sb.Append(")\n");
+        sb.Append("        {\n");
+        for (int i = 0; i < length; ++i)
+        {
+            sb.Append("            ").Append(InColParameters[i].Name)
+                .Append(" = In").Append(InColParameters[i].Name)
+                .Append(";\n");
+        }
+        sb.Append("        }\n\n");
+
+        sb.Append("        public override int GetHashCode()\n")
+            .Append("        {\n")
+            .Append("            return ID;\n")
+            .Append("        }\n\n");
+
+        sb.Append("        public override string ToString()\n")
+            .Append("        {\n")
+            .Append("            return \"").Append(InName).Append(" : ID = \" + ID");
+
+        for (int i = 1; i < length; ++i)
+        {
+            sb.Append("+ \", ").Append(InColParameters[i].Name).Append(" = \" + ").
+            Append(InColParameters[i].Name);
+        }
+        sb.Append(";\n");
+        sb.Append("        }\n\n");
+
+        sb.Append("        public override bool Equals(object InObj)\n")
+            .Append("        {\n")
+            .Append("            if (null == InObj) return false;\n")
+            .Append("            else return InObj is ").Append(InName).Append(" && (InObj as ")
+            .Append(InName).Append(").ID == ID;\n")
+            .Append("        }\n");
+
+        sb.Append("    }\n");
+        sb.Append("}");
+        if (!Directory.Exists(InScriptSavePath)) Directory.CreateDirectory(InScriptSavePath);
+        string filepath = InScriptSavePath + InName + "Data.cs";
         if (File.Exists(filepath)) File.Delete(filepath);
 
         File.WriteAllText(filepath, sb.ToString(), Encoding.UTF8);
     }
 
-    void CreateDatabaseTable(string InName, ColumnParameter[] InColParameters, ICell[,] InCellData)
+    static void CreateDatabaseTable(string InName, ColumnParameter[] InColParameters, List<ICell[]> InCellData,
+        string InDatabasePath)
     {
-        SQLite3Handle handle = new SQLite3Handle(databasePath, SQLite3OpenFlags.ReadWrite | SQLite3OpenFlags.Create);
+        SQLite3Handle handle = new SQLite3Handle(InDatabasePath, SQLite3OpenFlags.Create | SQLite3OpenFlags.ReadWrite);
         StringBuilder sb = new StringBuilder(512);
 
         handle.Exec("DROP TABLE IF EXISTS " + InName);
@@ -392,8 +658,8 @@ public class SQLite3Creator : EditorWindow
 
         handle.Exec(sb.ToString());
 
-        length = InCellData.GetLength(0);
-        int length1 = InCellData.GetLength(1);
+        length = InCellData.Count;
+        int length1 = InCellData[0].Length;
 
         for (int i = 0; i < length; i++)
         {
@@ -404,13 +670,13 @@ public class SQLite3Creator : EditorWindow
                 switch (InColParameters[j].Type)
                 {
                     case ValueType.INTEGER:
-                        sb.Append(InCellData[i, j] == null ? 0 : (int)InCellData[i, j].NumericCellValue);
+                        sb.Append(InCellData[i][j] == null ? 0 : (int)InCellData[i][j].NumericCellValue);
                         break;
                     case ValueType.REAL:
-                        sb.Append(InCellData[i, j] == null ? 0 : InCellData[i, j].NumericCellValue);
+                        sb.Append(InCellData[i][j] == null ? 0 : InCellData[i][j].NumericCellValue);
                         break;
                     default:
-                        sb.Append("'").Append(InCellData[i, j] == null ? "" : InCellData[i, j].StringCellValue).Append("'");
+                        sb.Append("\"").Append(InCellData[i][j] == null ? "" : InCellData[i][j].StringCellValue).Append("\"");
                         break;
                 }
                 sb.Append(", ");
@@ -422,6 +688,20 @@ public class SQLite3Creator : EditorWindow
         }
 
         handle.CloseDB();
+    }
+
+    static int GetMin(params int[] InParams)
+    {
+        Assert.IsNotNull(InParams);
+
+        int length = InParams.Length;
+        int min = length == 0 ? 0 : InParams[0];
+        for (int i = 0; i < length; ++i)
+        {
+            if (min > InParams[i]) min = InParams[i];
+        }
+
+        return min;
     }
 }
 

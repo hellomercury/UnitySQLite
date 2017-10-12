@@ -322,7 +322,7 @@ namespace SQLite3
             int length = InValues.Length;
             for (int i = 0; i < length; ++i)
             {
-                stringBuilder.Append("'").Append(InValues[i]).Append("', ");
+                stringBuilder.Append("\"").Append(InValues[i]).Append("\", ");
             }
             stringBuilder.Remove(stringBuilder.Length - 2, 2);
             stringBuilder.Append(")");
@@ -343,7 +343,7 @@ namespace SQLite3
             int length = property.Infos.Length;
             for (int i = 0; i < length; i++)
             {
-                stringBuilder.Append("'").Append(property.Infos[i].GetValue(InT, null)).Append("', ");
+                stringBuilder.Append("\"").Append(property.Infos[i].GetValue(InT, null)).Append("\", ");
             }
             stringBuilder.Remove(stringBuilder.Length - 2, 2);
             stringBuilder.Append(")");
@@ -388,9 +388,9 @@ namespace SQLite3
             for (int i = 1; i < length; i++)
             {
                 stringBuilder.Append(property.Infos[i].Name)
-                    .Append(" = '")
+                    .Append(" = \"")
                     .Append(property.Infos[i].GetValue(InT, null))
-                    .Append("', ");
+                    .Append("\", ");
             }
             stringBuilder.Remove(stringBuilder.Length - 2, 2);
             stringBuilder.Append(" WHERE ID = ")
@@ -411,9 +411,9 @@ namespace SQLite3
                 .Append(property.ClassName)
                 .Append(" SET ")
                 .Append(property.Infos[index].Name)
-                .Append(" = '")
+                .Append(" = \"")
                 .Append(property.Infos[index].GetValue(InT, null))
-                .Append("' WHERE ID = ")
+                .Append("\" WHERE ID = ")
                 .Append(property.Infos[0].GetValue(InT, null));
 
             Exec(stringBuilder.ToString());
