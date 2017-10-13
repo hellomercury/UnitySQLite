@@ -7,7 +7,8 @@ using System.Text;
 using NPOI.SS.UserModel;
 using NPOI.HSSF.UserModel;
 using NPOI.XSSF.UserModel;
-using SQLite3;
+using Framework.SQLite3;
+using Framework.Tools;
 using UnityEngine.Assertions;
 using Object = UnityEngine.Object;
 
@@ -58,7 +59,7 @@ public class SQLite3Creator : EditorWindow
     void OnEnable()
     {
         dataPath = Application.dataPath;
-        databasePath = EditorPrefs.GetString("DatabasePath", "Assets/StreamingAssets/Database/static.db");
+        databasePath = EditorPrefs.GetString("DatabasePath", "DB/static.db");
         scriptSavePath = EditorPrefs.GetString("ScriptSavePath", "Assets/Scripts/Data/");
         excelPath = EditorPrefs.GetString("ExcelPath", dataPath + "/ExcelData/");
         isPreviewBtnEnabled = true;
@@ -80,8 +81,8 @@ public class SQLite3Creator : EditorWindow
                 string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + scriptSavePath, "");
                 if (!string.IsNullOrEmpty(path))
                 {
-                    scriptSavePath = "Assets" + path.Replace(dataPath, "") + "/";
-                    EditorPrefs.SetString("CreatorScriptPath", scriptSavePath);
+                    scriptSavePath = path.Replace(dataPath, "") + "/";
+                    EditorPrefs.SetString("ScriptSavePath", scriptSavePath);
                 }
             }
             GUILayout.EndHorizontal();
@@ -90,11 +91,11 @@ public class SQLite3Creator : EditorWindow
             databasePath = EditorGUILayout.TextField("Database Path", databasePath);
             if (GUILayout.Button("Open", GUILayout.MaxWidth(45)))
             {
-                string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + databasePath, "");
+                string path = EditorUtility.SaveFilePanel("Database Path", Application.dataPath + databasePath, "Static.db", "db");
                 if (!string.IsNullOrEmpty(path))
                 {
-                    databasePath = "Assets" + path.Replace(dataPath, "") + "/";
-                    EditorPrefs.SetString("CreatorScriptPath", databasePath);
+                    databasePath = path.Replace(Application.dataPath, "");
+                    EditorPrefs.SetString("DatabasePath", databasePath);
                 }
             }
             GUILayout.EndHorizontal();
@@ -230,8 +231,8 @@ public class SQLite3Creator : EditorWindow
                         string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + scriptSavePath, "");
                         if (!string.IsNullOrEmpty(path))
                         {
-                            scriptSavePath = "Assets" + path.Replace(dataPath, "") + "/";
-                            EditorPrefs.SetString("CreatorScriptPath", scriptSavePath);
+                            scriptSavePath = path.Replace(dataPath, "") + "/";
+                            EditorPrefs.SetString("ScriptSavePath", scriptSavePath);
                         }
                     }
                     GUILayout.EndHorizontal();
@@ -243,8 +244,8 @@ public class SQLite3Creator : EditorWindow
                         string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + databasePath, "");
                         if (!string.IsNullOrEmpty(path))
                         {
-                            databasePath = "Assets" + path.Replace(dataPath, "") + "/";
-                            EditorPrefs.SetString("CreatorScriptPath", databasePath);
+                            databasePath = path.Replace(dataPath, "") + "/";
+                            EditorPrefs.SetString("DatabasePath", databasePath);
                         }
                     }
                     GUILayout.EndHorizontal();
@@ -440,21 +441,22 @@ public class SQLite3Creator : EditorWindow
                 {
                     ISheet sheet = book.GetSheetAt(i);
 
-                    int rowCount = sheet.LastRowNum;
-                    if (rowCount > 3)
+                    int rowCount = sheet.LastRowNum + 1;
+                    if (rowCount > 2)
                     {
                         IRow row1 = sheet.GetRow(0);
                         IRow row2 = sheet.GetRow(1);
                         IRow row3 = sheet.GetRow(2);
                         int row1Count = row1.LastCellNum,
-                            row2Count = row2.LastCellNum,
-                            row3Count = null == row3 ? row2Count : row3.LastCellNum;
+                            row2Count = row2.LastCellNum;
 
-                        int colCount = row1Count == row2Count && row1Count == row3Count
+                        int colCount = row1Count == row2Count
                             ? row1Count
-                            : GetMin(row1Count, row2Count, row3Count);
+                            : Utility.Min(row1Count, row2Count);
+
                         parameter = new SheetParameter();
-                        parameter.SheetName = sheet.SheetName.Equals("Sheet1") ? info.Name.Replace(info.Extension, "") : sheet.SheetName;
+                        parameter.SheetName = sheet.SheetName.Equals("Sheet1") || sheet.SheetName.Equals("工作表1")
+                            ? info.Name.Replace(info.Extension, "") : sheet.SheetName;
                         parameter.IsEnable = true;
                         parameter.IsCreated = false;
                         parameter.ColParameters = new ColumnParameter[colCount];
@@ -500,22 +502,25 @@ public class SQLite3Creator : EditorWindow
                             parameter.ColParameters[j].IsEnable = true;
                         }
 
-                        parameter.SheetData = new List<ICell[]>(rowCount - 3);
-                        IRow row;
-                        ICell[] cells;
-                        for (int j = 3; j < rowCount; j++)
+                        if (rowCount > 3)
                         {
-                            row = sheet.GetRow(j);
-                            if (null != row)
+                            parameter.SheetData = new List<ICell[]>(rowCount - 3);
+                            IRow row;
+                            ICell[] cells;
+                            for (int j = 3; j < rowCount; j++)
                             {
-                                cells = new ICell[colCount];
-                                for (int k = 0; k < colCount; k++)
+                                row = sheet.GetRow(j);
+                                if (null != row)
                                 {
-                                    cells[k] = row.GetCell(k);
-                                }
+                                    cells = new ICell[colCount];
+                                    for (int k = 0; k < colCount; k++)
+                                    {
+                                        cells[k] = row.GetCell(k);
+                                    }
 
-                                if (null != cells[0] && cells[0].CellType == CellType.Numeric)
-                                    parameter.SheetData.Add(cells);
+                                    if (null != cells[0] && cells[0].CellType == CellType.Numeric)
+                                        parameter.SheetData.Add(cells);
+                                }
                             }
                         }
                     }
@@ -546,8 +551,9 @@ public class SQLite3Creator : EditorWindow
             .Append(" * 如需进行修改，请修改脚步 SQLiteCreator 中的 CreateScript 方法\n")
             .Append(" *                                                                                                                 --szn\n")
             .Append(" */\n\n")
-            .Append("namespace SQLite3.Data\n")
-            .Append("{\n");
+            .Append("using Framework.DataStruct;\n\n");
+        //            .Append("namespace SQLite3.Data\n")
+        //            .Append("{\n");
 
         sb.Append("    public enum ").Append(InName).Append("Enum\n")
             .Append("    {\n");
@@ -561,6 +567,7 @@ public class SQLite3Creator : EditorWindow
         sb.Append("    public class ").Append(InName).Append(" : Base").Append("\n")
             .Append("    {\n");
 
+        sb.Append("        private readonly int hashCode;\n\n");
         for (int i = 0; i < length; i++)
         {
             sb.Append("        [Sync((int)").Append(InName).Append("Enum.").Append(InColParameters[i].Name).Append(")]\n")
@@ -568,7 +575,7 @@ public class SQLite3Creator : EditorWindow
                 .Append(InColParameters[i].OriginalType)
                 .Append(" ")
                 .Append(InColParameters[i].Name)
-                .Append(" { get; private set; }");
+                .Append(0 == i ? " { get; private set; }" : " { get; set; }");
 
             if (string.IsNullOrEmpty(InColParameters[i].Describe))
                 sb.Append("\n\n");
@@ -589,7 +596,9 @@ public class SQLite3Creator : EditorWindow
         }
         sb.Remove(sb.Length - 2, 2);
         sb.Append(")\n");
-        sb.Append("        {\n");
+        sb.Append("        {\n")
+            .Append("            hashCode = InID;\n");
+
         for (int i = 0; i < length; ++i)
         {
             sb.Append("            ").Append(InColParameters[i].Name)
@@ -600,7 +609,7 @@ public class SQLite3Creator : EditorWindow
 
         sb.Append("        public override int GetHashCode()\n")
             .Append("        {\n")
-            .Append("            return ID;\n")
+            .Append("            return hashCode;\n")
             .Append("        }\n\n");
 
         sb.Append("        public override string ToString()\n")
@@ -623,9 +632,11 @@ public class SQLite3Creator : EditorWindow
             .Append("        }\n");
 
         sb.Append("    }\n");
-        sb.Append("}");
+        //        sb.Append("}");
+
+        InScriptSavePath = Application.dataPath + "/" + InScriptSavePath;
         if (!Directory.Exists(InScriptSavePath)) Directory.CreateDirectory(InScriptSavePath);
-        string filepath = InScriptSavePath + InName + "Data.cs";
+        string filepath = InScriptSavePath + InName + ".cs";
         if (File.Exists(filepath)) File.Delete(filepath);
 
         File.WriteAllText(filepath, sb.ToString(), Encoding.UTF8);
@@ -634,7 +645,7 @@ public class SQLite3Creator : EditorWindow
     static void CreateDatabaseTable(string InName, ColumnParameter[] InColParameters, List<ICell[]> InCellData,
         string InDatabasePath)
     {
-        SQLite3Handle handle = new SQLite3Handle(InDatabasePath, SQLite3OpenFlags.Create | SQLite3OpenFlags.ReadWrite);
+        SQLite3Handle handle = new SQLite3Handle(Application.dataPath + "/" + InDatabasePath, SQLite3OpenFlags.Create | SQLite3OpenFlags.ReadWrite);
         StringBuilder sb = new StringBuilder(512);
 
         handle.Exec("DROP TABLE IF EXISTS " + InName);
@@ -658,33 +669,117 @@ public class SQLite3Creator : EditorWindow
 
         handle.Exec(sb.ToString());
 
-        length = InCellData.Count;
-        int length1 = InCellData[0].Length;
-
-        for (int i = 0; i < length; i++)
+        if (null != InCellData)
         {
-            sb.Remove(0, sb.Length);
-            sb.Append("INSERT INTO ").Append(InName).Append(" VALUES(");
-            for (int j = 0; j < length1; j++)
+            length = InCellData.Count;
+            int length1 = InCellData[0].Length;
+            ICell cell;
+            for (int i = 0; i < length; i++)
             {
-                switch (InColParameters[j].Type)
+                sb.Remove(0, sb.Length);
+                sb.Append("INSERT INTO ").Append(InName).Append(" VALUES(");
+                for (int j = 0; j < length1; j++)
                 {
-                    case ValueType.INTEGER:
-                        sb.Append(InCellData[i][j] == null ? 0 : (int)InCellData[i][j].NumericCellValue);
-                        break;
-                    case ValueType.REAL:
-                        sb.Append(InCellData[i][j] == null ? 0 : InCellData[i][j].NumericCellValue);
-                        break;
-                    default:
-                        sb.Append("\"").Append(InCellData[i][j] == null ? "" : InCellData[i][j].StringCellValue).Append("\"");
-                        break;
+                    cell = InCellData[i][j];
+                    switch (InColParameters[j].Type)
+                    {
+                        case ValueType.INTEGER:
+                            if (null == cell)
+                                sb.Append(0);
+                            else
+                            {
+                                switch (cell.CellType)
+                                {
+                                    case CellType.Numeric:
+                                        sb.Append((int)cell.NumericCellValue);
+                                        break;
+
+                                    case CellType.String:
+                                        int result;
+                                        sb.Append(int.TryParse(cell.StringCellValue, out result)
+                                            ? result
+                                            : 0);
+                                        break;
+
+                                    case CellType.Boolean:
+                                        sb.Append(cell.BooleanCellValue ? 1 : 0);
+                                        break;
+
+                                    default:
+                                        sb.Append(0);
+                                        break;
+                                }
+                            }
+                            break;
+
+                        case ValueType.REAL:
+                            if (null == cell)
+                                sb.Append(0);
+                            else
+                            {
+                                switch (cell.CellType)
+                                {
+                                    case CellType.Numeric:
+                                        sb.Append(cell.NumericCellValue);
+                                        break;
+
+                                    case CellType.String:
+                                        double result;
+                                        sb.Append(double.TryParse(cell.StringCellValue, out result)
+                                            ? result
+                                            : 0);
+                                        break;
+
+                                    case CellType.Boolean:
+                                        sb.Append(cell.BooleanCellValue ? 1 : 0);
+                                        break;
+
+                                    default:
+                                        sb.Append(0);
+                                        break;
+                                }
+                            }
+                            break;
+
+                        default:
+                            if (null == cell)
+                                sb.Append("\'\"");
+                            else
+                            {
+                                switch (cell.CellType)
+                                {
+                                    case CellType.Numeric:
+                                        sb.Append("\'")
+                                            .Append(cell.NumericCellValue)
+                                            .Append("\'");
+                                        break;
+
+                                    case CellType.String:
+                                        sb.Append("\'")
+                                            .Append(cell.StringCellValue.Replace("'", "''"))
+                                            .Append("\'");
+                                        break;
+
+                                    case CellType.Boolean:
+                                        sb.Append("\'")
+                                            .Append(cell.BooleanCellValue.ToString())
+                                            .Append("\'");
+                                        break;
+
+                                    default:
+                                        sb.Append(0);
+                                        break;
+                                }
+                            }
+                            break;
+                    }
+                    sb.Append(", ");
                 }
-                sb.Append(", ");
+                sb.Remove(sb.Length - 2, 2);
+                sb.Append(")");
+                //Debug.LogError(sb.ToString());
+                handle.Exec(sb.ToString());
             }
-            sb.Remove(sb.Length - 2, 2);
-            sb.Append(")");
-            //Debug.LogError(sb.ToString());
-            handle.Exec(sb.ToString());
         }
 
         handle.CloseDB();
@@ -698,7 +793,10 @@ public class SQLite3Creator : EditorWindow
         int min = length == 0 ? 0 : InParams[0];
         for (int i = 0; i < length; ++i)
         {
-            if (min > InParams[i]) min = InParams[i];
+            if (min > InParams[i])
+            {
+                min = InParams[i];
+            }
         }
 
         return min;
