@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace SQLite3
+namespace Framework.SQLite3
 {
     public static class SQLite3
     {

@@ -91,7 +91,9 @@ public class SQLite3Creator : EditorWindow
             databasePath = EditorGUILayout.TextField("Database Path", databasePath);
             if (GUILayout.Button("Open", GUILayout.MaxWidth(45)))
             {
-                string path = EditorUtility.SaveFilePanel("Database Path", Application.dataPath + databasePath, "Static.db", "db");
+                string path = Application.dataPath + databasePath;
+                if (!File.Exists(path)) path = Application.dataPath;
+                path = EditorUtility.SaveFilePanel("Database Path", path, "Static.db", "db");
                 if (!string.IsNullOrEmpty(path))
                 {
                     databasePath = path.Replace(Application.dataPath, "");
@@ -241,7 +243,9 @@ public class SQLite3Creator : EditorWindow
                     databasePath = EditorGUILayout.TextField("Database Path", databasePath);
                     if (GUILayout.Button("Open", GUILayout.MaxWidth(45)))
                     {
-                        string path = EditorUtility.SaveFolderPanel("Database Path", dataPath + "/" + databasePath, "");
+                        string path = Application.dataPath + databasePath;
+                        if (!File.Exists(path)) path = Application.dataPath;
+                        path = EditorUtility.SaveFilePanel("Database Path", path, "Static.db", "db");
                         if (!string.IsNullOrEmpty(path))
                         {
                             databasePath = path.Replace(dataPath, "") + "/";
@@ -646,6 +650,7 @@ public class SQLite3Creator : EditorWindow
         string InDatabasePath)
     {
         SQLite3Handle handle = new SQLite3Handle(Application.dataPath + "/" + InDatabasePath, SQLite3OpenFlags.Create | SQLite3OpenFlags.ReadWrite);
+
         StringBuilder sb = new StringBuilder(512);
 
         handle.Exec("DROP TABLE IF EXISTS " + InName);
@@ -743,7 +748,7 @@ public class SQLite3Creator : EditorWindow
 
                         default:
                             if (null == cell)
-                                sb.Append("\'\"");
+                                sb.Append("''");
                             else
                             {
                                 switch (cell.CellType)
@@ -767,7 +772,7 @@ public class SQLite3Creator : EditorWindow
                                         break;
 
                                     default:
-                                        sb.Append(0);
+                                        sb.Append("''");
                                         break;
                                 }
                             }

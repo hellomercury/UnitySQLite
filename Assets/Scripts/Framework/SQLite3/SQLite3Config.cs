@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SQLite3
+namespace Framework.SQLite3
 {
     [Flags]
     public enum SQLite3OpenFlags

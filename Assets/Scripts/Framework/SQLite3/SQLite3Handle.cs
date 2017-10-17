@@ -8,34 +8,29 @@ using UnityEngine.Assertions;
 using SQLite3DbHandle = System.IntPtr;
 using SQLite3Statement = System.IntPtr;
 using Object = System.Object;
+using Framework.DataStruct;
 
-namespace SQLite3
+namespace Framework.SQLite3
 {
     public class SQLite3Handle
     {
-        //public static SQLite3Handle Instance
-        //{
-        //    get
-        //    {
-        //        if (null == instance) instance = new SQLite3Handle();
-        //        return instance;
-        //    }
-        //}
-        //private static SQLite3Handle instance;
-
         public SQLite3DbHandle DatabaseHandle { get { return handle; } }
         private SQLite3DbHandle handle;
 
         private StringBuilder stringBuilder;
 
-        public SQLite3Handle(string InDataBasePath) : 
+        public SQLite3Handle(string InDataBasePath) :
             this(InDataBasePath, SQLite3OpenFlags.ReadWrite)
         {
         }
-        
+
         public SQLite3Handle(string InDataBasePath, SQLite3OpenFlags InFlags)
         {
+#if UNITY_EDITOR
             Assert.raiseExceptions = true;
+#else
+            Assert.raiseExceptions = true;
+#endif
             Assert.IsFalse(string.IsNullOrEmpty(InDataBasePath), "数据库路径不能为空！");
 
             if (SQLite3Result.OK != SQLite3.Open(ConvertStringToUTF8Bytes(InDataBasePath),
@@ -51,7 +46,7 @@ namespace SQLite3
             }
         }
 
-        public Object[] SelectSingleData(string InTableName, int InKey)
+        public Object[] SelectSingleData(string InTableName, int InValue)
         {
             Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
@@ -61,7 +56,7 @@ namespace SQLite3
             stringBuilder.Append("SELECT * FROM ")
                 .Append(InTableName)
                 .Append(" WHERE ID = ")
-                .Append(InKey);
+                .Append(InValue);
 
             SQLite3Statement stmt;
             if (SQLite3Result.OK == SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero))
@@ -153,12 +148,7 @@ namespace SQLite3
             return objs;
         }
 
-        public T SelectSingleT<T>(int InKey) where T : Base, new()
-        {
-            return SelectSingleT<T>("ID = " + InKey);
-        }
-
-        public T SelectSingleT<T>(string InCommand, bool InIsNotFullCommand = true) where T : Base, new()
+        public T SelectSingleT<T>(int InValue) where T : Base, new()
         {
             Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
@@ -167,24 +157,14 @@ namespace SQLite3
             ClassProperty property = t.ClassPropertyInfos;
 
             SQLite3Statement stmt;
-            SQLite3Result result;
 
-            if (InIsNotFullCommand)
-            {
-                stringBuilder.Remove(0, stringBuilder.Length);
-                stringBuilder.Append("SELECT * FROM ")
-                    .Append(property.ClassName)
-                    .Append(" WHERE ")
-                    .Append(InCommand);
+            stringBuilder.Remove(0, stringBuilder.Length);
+            stringBuilder.Append("SELECT * FROM ")
+                .Append(property.ClassName)
+                .Append(" WHERE ID = ")
+                .Append(InValue);
 
-                result = SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero);
-            }
-            else
-            {
-                result = SQLite3.Prepare2(handle, InCommand, InCommand.Length, out stmt, IntPtr.Zero);
-            }
-
-            if (SQLite3Result.OK == result)
+            if (SQLite3Result.OK == SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero))
             {
                 if (SQLite3Result.Row == SQLite3.Step(stmt))
                 {
@@ -211,38 +191,111 @@ namespace SQLite3
             return t;
         }
 
-        //public List<T> SelectMultiT<T>(string InCommand, bool InIsNotFullCommand = true)
-        //{
-        //    Assert.IsFalse(SQLite3DbHandle.Zero == handle);
+        public T SelectSingleT<T, U>(U InKey, int InValue) where T : Base, new()
+        {
+            Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
-        //    string transaction = "BEGIN TRANSACTION";
-        //    SQLite3Statement beginStmt;
-        //    if (SQLite3Result.OK !=
-        //        SQLite3.Prepare2(handle, transaction, transaction.Length, out beginStmt, IntPtr.Zero))
-        //    {
-        //        Debug.LogError(transaction + " \nError : " + SQLite3.GetErrmsg(beginStmt));
-        //        SQLite3.Finalize(beginStmt);
-        //    }
+            T t = new T();
+            
+            ClassProperty property = t.ClassPropertyInfos;
 
+            string key;
+            if (InKey is string) key = InKey as string;
+            else key = property.Infos[InKey.GetHashCode()].Name;
 
+            SQLite3Statement stmt;
 
-        //    transaction = "COMMIT";
-        //    SQLite3Statement commitStmt;
-        //    if (SQLite3Result.OK !=
-        //        SQLite3.Prepare2(handle, transaction, transaction.Length, out commitStmt, IntPtr.Zero))
-        //    {
-        //        Debug.LogError(transaction + " \nError : " + SQLite3.GetErrmsg(commitStmt));
-        //        SQLite3.Finalize(commitStmt);
-        //    }
+            stringBuilder.Remove(0, stringBuilder.Length);
+            stringBuilder.Append("SELECT * FROM ")
+                .Append(property.ClassName)
+                .Append(" WHERE ")
+                .Append(key)
+                .Append(" = ")
+                .Append(InValue);
 
-        //    //SQLite3.Finalize(stmt);
-        //    SQLite3.Finalize(beginStmt);
-        //    SQLite3.Finalize(commitStmt);
+            if (SQLite3Result.OK == SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero))
+            {
+                if (SQLite3Result.Row == SQLite3.Step(stmt))
+                {
+                    int count = SQLite3.ColumnCount(stmt);
+                    int length = property.Infos.Length;
 
-        //    return null;
-        //}
+                    Assert.IsTrue(count == length, property.ClassName + " : 数据库列与类属性个数不一致！");
 
-        private void GetT<T>(T InT, PropertyInfo[] InInfos, SQLite3Statement InStmt, int InCount) where T : Base, new()
+                    GetT(t, property.Infos, stmt, length);
+                }
+            }
+            else
+            {
+                stringBuilder.Append("\nError : ")
+                    .Append(SQLite3.GetErrmsg(handle));
+
+                Debug.LogError(stringBuilder.ToString());
+
+                return null;
+            }
+
+            SQLite3.Finalize(stmt);
+
+            return t;
+        }
+
+        public Dictionary<int, T> SelectMultiT<T>(string InCommand = "") where T : Base, new()
+        {
+            Assert.IsFalse(SQLite3DbHandle.Zero == handle);
+            Dictionary<int, T> value;
+            ClassProperty property = Base.GetPropertyInfos(typeof(T));
+            
+            stringBuilder.Remove(0, stringBuilder.Length);
+            stringBuilder.Append("SELECT * FROM ")
+                .Append(property.ClassName)
+                .Append(InCommand);
+
+            SQLite3Statement stmt;
+            if (SQLite3Result.OK == SQLite3.Prepare2(handle, stringBuilder.ToString(), stringBuilder.Length, out stmt, IntPtr.Zero))
+            {
+                int count = SQLite3.ColumnCount(stmt);
+                int length = property.Infos.Length;
+
+                Assert.IsTrue(count == length, property.ClassName + " : 数据库列与类属性个数不一致！");
+                value = new Dictionary<int, T>();
+                SQLite3Result result;
+                while (true)
+                {
+                    result = SQLite3.Step(stmt);
+                    if (SQLite3Result.Row == result)
+                    {
+                        T t = GetT(new T(), property.Infos, stmt, count);
+                      
+                        value.Add(t.ID, t);
+                    }
+                    else if (SQLite3Result.Done == result)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        Debug.LogError(SQLite3.GetErrmsg(stmt));
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                stringBuilder.Append("\nError : ")
+                    .Append(SQLite3.GetErrmsg(handle));
+
+                Debug.LogError(stringBuilder.ToString());
+
+                return null;
+            }
+
+            SQLite3.Finalize(stmt);
+
+            return value;
+        }
+
+        private T GetT<T>(T InValue, PropertyInfo[] InInfos, SQLite3Statement InStmt, int InCount) where T : Base, new()
         {
             Type type;
             for (int i = 0; i < InCount; ++i)
@@ -250,14 +303,16 @@ namespace SQLite3
                 type = InInfos[i].PropertyType;
 
                 if (typeof(int) == type)
-                    InInfos[i].SetValue(InT, SQLite3.ColumnInt(InStmt, i), null);
+                    InInfos[i].SetValue(InValue, SQLite3.ColumnInt(InStmt, i), null);
                 else if (typeof(long) == type)
-                    InInfos[i].SetValue(InT, SQLite3.ColumnInt64(InStmt, i), null);
+                    InInfos[i].SetValue(InValue, SQLite3.ColumnInt64(InStmt, i), null);
                 else if (typeof(float) == type || typeof(double) == type)
-                    InInfos[i].SetValue(InT, SQLite3.ColumnDouble(InStmt, i), null);
+                    InInfos[i].SetValue(InValue, SQLite3.ColumnDouble(InStmt, i), null);
                 else if (typeof(string) == type)
-                    InInfos[i].SetValue(InT, SQLite3.ColumnText(InStmt, i), null);
+                    InInfos[i].SetValue(InValue, SQLite3.ColumnText(InStmt, i), null);
             }
+
+            return InValue;
         }
 
         public void CreateTable(string InTableName, params string[] InColumnNameAndType)
@@ -330,10 +385,10 @@ namespace SQLite3
             Exec(stringBuilder.ToString());
         }
 
-        public void InsertT<T>(T InT) where T : Base
+        public void InsertT<T>(T InValue) where T : Base
         {
             Assert.IsFalse(SQLite3DbHandle.Zero == handle);
-            ClassProperty property = InT.ClassPropertyInfos;
+            ClassProperty property = InValue.ClassPropertyInfos;
 
             stringBuilder.Remove(0, stringBuilder.Length);
             stringBuilder.Append("INSERT INTO ")
@@ -343,7 +398,7 @@ namespace SQLite3
             int length = property.Infos.Length;
             for (int i = 0; i < length; i++)
             {
-                stringBuilder.Append("\"").Append(property.Infos[i].GetValue(InT, null)).Append("\", ");
+                stringBuilder.Append("\"").Append(property.Infos[i].GetValue(InValue, null)).Append("\", ");
             }
             stringBuilder.Remove(stringBuilder.Length - 2, 2);
             stringBuilder.Append(")");
@@ -372,11 +427,11 @@ namespace SQLite3
             Exec(stringBuilder.ToString());
         }
 
-        public void UpdateT<T>(T InT) where T : Base
+        public void UpdateT<T>(T InValue) where T : Base
         {
             Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
-            ClassProperty property = InT.ClassPropertyInfos;
+            ClassProperty property = InValue.ClassPropertyInfos;
             Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
             stringBuilder.Remove(0, stringBuilder.Length);
@@ -389,38 +444,38 @@ namespace SQLite3
             {
                 stringBuilder.Append(property.Infos[i].Name)
                     .Append(" = \"")
-                    .Append(property.Infos[i].GetValue(InT, null))
+                    .Append(property.Infos[i].GetValue(InValue, null))
                     .Append("\", ");
             }
             stringBuilder.Remove(stringBuilder.Length - 2, 2);
             stringBuilder.Append(" WHERE ID = ")
-                .Append(property.Infos[0].GetValue(InT, null));
+                .Append(property.Infos[0].GetValue(InValue, null));
 
             Exec(stringBuilder.ToString());
         }
 
-        public void UpdateSingleT<T, U>(T InT, U InU) where T : Base
+        public void UpdateSingleT<T>(int InIndex, T InValue) where T : Base
         {
             Assert.IsFalse(SQLite3DbHandle.Zero == handle);
 
-            ClassProperty property = InT.ClassPropertyInfos;
-            int index = InU.GetHashCode();
+            ClassProperty property = InValue.ClassPropertyInfos;
 
             stringBuilder.Remove(0, stringBuilder.Length);
             stringBuilder.Append("UPDATE ")
                 .Append(property.ClassName)
                 .Append(" SET ")
-                .Append(property.Infos[index].Name)
+                .Append(property.Infos[InIndex].Name)
                 .Append(" = \"")
-                .Append(property.Infos[index].GetValue(InT, null))
+                .Append(property.Infos[InIndex].GetValue(InValue, null))
                 .Append("\" WHERE ID = ")
-                .Append(property.Infos[0].GetValue(InT, null));
+                .Append(property.Infos[0].GetValue(InValue, null));
 
             Exec(stringBuilder.ToString());
         }
 
         public void Exec(string InCommand)
         {
+            Assert.IsFalse(SQLite3DbHandle.Zero == handle);
             //string transaction = "BEGIN TRANSACTION";
             //SQLite3Statement beginStmt;
             //if (SQLite3Result.OK !=
@@ -432,7 +487,7 @@ namespace SQLite3
 
             SQLite3Statement stmt;
 
-            if (SQLite3Result.OK == SQLite3.Prepare2(handle, InCommand, UTF8Encoding.UTF8.GetByteCount(InCommand), out stmt, IntPtr.Zero))
+            if (SQLite3Result.OK == SQLite3.Prepare2(handle, InCommand, Encoding.UTF8.GetByteCount(InCommand), out stmt, IntPtr.Zero))
             {
                 if (SQLite3Result.Done != SQLite3.Step(stmt))
                     Debug.LogError(InCommand + "\nError : " + SQLite3.GetErrmsg(stmt));
